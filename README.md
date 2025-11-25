@@ -39,6 +39,12 @@ A modern web application to organize your Spotify music collection by genre, moo
 # Install dependencies
 pnpm install
 
+# Create .env file from example
+cp .env.example .env
+
+# Edit .env and add your Spotify Client ID
+# Get your client ID from: https://developer.spotify.com/dashboard
+
 # Start development server
 pnpm dev
 
@@ -70,6 +76,7 @@ pnpm dlx shadcn@latest add dialog
 ## 📝 Migration Status
 
 ### Phase 1: ✅ Complete
+
 - [x] Move legacy application to `web-legacy/`
 - [x] Initialize Astro project with Tailwind CSS v4
 - [x] Configure React integration
@@ -77,12 +84,14 @@ pnpm dlx shadcn@latest add dialog
 - [x] Verify build process
 
 ### Phase 2: 🚧 Pending
+
 - [ ] Migrate HTML structure to Astro
 - [ ] Port JavaScript logic to TypeScript
 - [ ] Implement Spotify API integration
 - [ ] Maintain feature parity with legacy app
 
 ### Phase 3: 🚧 Pending
+
 - [ ] Create modular React components
 - [ ] Implement shadcn/ui components
 - [ ] Apply modern Spotify-inspired design
@@ -93,9 +102,26 @@ pnpm dlx shadcn@latest add dialog
 
 The app uses the Spotify Web API. You'll need to:
 
-1. Create a Spotify Developer account
-2. Register your application
-3. Update the client ID in `src/config/spotify.ts`
+1. **Create a Spotify Developer account** at [developer.spotify.com](https://developer.spotify.com/dashboard)
+2. **Register your application** and get your Client ID
+3. **Add redirect URIs** in your Spotify app settings:
+   - For local development: `http://localhost:4321/`
+   - For production: Your deployed URL
+4. **Configure environment variables**:
+   - Copy `.env.example` to `.env`
+   - Add your `PUBLIC_SPOTIFY_CLIENT_ID`
+   - Update redirect URIs if needed
+
+### Environment Variables
+
+```bash
+# .env file
+PUBLIC_SPOTIFY_CLIENT_ID=your_client_id_here
+PUBLIC_SPOTIFY_REDIRECT_URI_LOCAL=http://localhost:4321/
+PUBLIC_SPOTIFY_REDIRECT_URI_REMOTE=https://your-domain.com/
+```
+
+**Note**: In Astro, environment variables prefixed with `PUBLIC_` are exposed to the client-side code.
 
 ## 📄 License
 
@@ -103,5 +129,5 @@ This is a forked version. The original project had no license, so use at your ow
 
 ## 🙏 Credits
 
-Originally created by [@plamere](https://github.com/plamere). 
+Originally created by [@plamere](https://github.com/plamere).
 Cherry-picked changes from [@kmturley](https://github.com/kmturley)'s fork.

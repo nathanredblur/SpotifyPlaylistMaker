@@ -1,50 +1,25 @@
 ---
-import '../styles/global.css';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import AppLayout from "@/layouts/AppLayout.astro";
+import { LandingPage } from "@/components/LandingPage";
+import { ConfigError } from "@/components/ConfigError";
 
-const title = 'Spotify Playlist Maker';
-const description = 'Organize your Spotify music collection';
+// Try to load configuration and catch any errors
+let configError: Error | null = null;
+try {
+  // This will throw if configuration is invalid
+  await import("@/config/spotify");
+} catch (error) {
+  configError = error instanceof Error ? error : new Error(String(error));
+  console.error("Configuration error:", configError);
+}
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{title}</title>
-	</head>
-
-	<body>
-		<div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-			<Card className="w-full max-w-2xl backdrop-blur-lg bg-white/10 border-white/20">
-				<CardHeader>
-					<CardTitle className="text-4xl font-bold text-white text-center">
-						{title}
-					</CardTitle>
-					<CardDescription className="text-lg text-slate-200 text-center">
-						{description}
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<div class="text-center text-slate-300 space-y-2">
-						<p>✅ Astro + React 19</p>
-						<p>✅ Tailwind CSS v4</p>
-						<p>✅ shadcn/ui Components</p>
-						<p>✅ TypeScript</p>
-					</div>
-					<div class="flex justify-center pt-4">
-						<Button className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-6 text-lg">
-							Connect with Spotify
-						</Button>
-					</div>
-					<div class="text-center text-sm text-slate-400 pt-4">
-						<p>Phase 1: Setup Complete ✨</p>
-						<p class="text-xs mt-2">Legacy app preserved in <code class="bg-white/10 px-2 py-1 rounded">web-legacy/</code></p>
-					</div>
-				</CardContent>
-			</Card>
-		</div>
-	</body>
-</html>
+<AppLayout title="Organize Your Music - Spotify Playlist Maker">
+  {
+    configError ? (
+      <ConfigError error={configError} client:only="react" />
+    ) : (
+      <LandingPage client:load />
+    )
+  }
+</AppLayout>

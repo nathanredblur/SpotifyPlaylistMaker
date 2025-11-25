@@ -1,0 +1,552 @@
+---
+alwaysApply: true
+---
+
+# Project Rules - Monorepo
+
+## Base Language and Technologies
+
+- **ALWAYS use TypeScript** in all code files
+- **ALWAYS read the `package.json`** before making any changes to determine the technologies used in the project
+
+## Tailwind CSS v4
+
+### Detection and Usage
+
+- If the project includes Tailwind CSS, **ONLY use Tailwind** for styling (no inline CSS or other solutions)
+- **ALWAYS use Tailwind CSS v4**, which works differently from v3
+
+### Tailwind v4 Configuration
+
+- Use the Vite plugin: `@tailwindcss/vite`
+- Configuration in `vite.config.ts`:
+
+  ```typescript
+  import { defineConfig } from "vite";
+  import tailwindcss from "@tailwindcss/vite";
+
+  export default defineConfig({
+    plugins: [tailwindcss()],
+  });
+  ```
+
+### Tailwind v4 Import
+
+- In the main CSS file, use:
+  ```css
+  @import "tailwindcss";
+  ```
+- **DO NOT use** `@tailwind base;`, `@tailwind components;`, `@tailwind utilities;` (this is v3 syntax)
+
+### Key v4 Differences
+
+1. **Does not require `tailwind.config.js` file** by default
+2. **Native Vite plugin** instead of PostCSS
+3. **Simplified import** with `@import "tailwindcss"`
+4. **Automatic file scanning** without additional configuration
+
+### Color System & Theme Variables
+
+**CRITICAL RULES FOR COLORS**:
+
+1. **NEVER use arbitrary values** like `text-[#c7cfe6]`, `hover:bg-[rgba(167,139,250,0.1)]`
+2. **ALWAYS use theme variables** defined in `global.css`
+3. **Use Tailwind's color scale** when available (e.g., `bg-purple-500`, `text-slate-700`)
+
+#### Custom Theme Colors (global.css)
+
+Define custom colors in `@theme inline`:
+
+```css
+@theme inline {
+  /* Custom color scale */
+  --color-purple-500: #a78bfa;
+  --color-purple-600: #7c3aed;
+
+  /* Theme variables */
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+}
+```
+
+#### Usage Examples
+
+**✅ CORRECT**:
+
+```tsx
+// Use theme variables
+<div className="bg-primary text-primary-foreground">
+<div className="border-border hover:bg-accent">
+
+// Use Tailwind color scale
+<div className="bg-purple-600 text-slate-700">
+<div className="hover:bg-purple-500/40"> {/* opacity modifier */}
+
+// Use custom defined colors
+<div className="bg-slate-800 border-purple-500">
+```
+
+**❌ INCORRECT**:
+
+```tsx
+// Never use arbitrary values for colors
+<div className="text-[#c7cfe6]">
+<div className="hover:bg-[rgba(167,139,250,0.1)]">
+<div className="min-w-[80px]"> {/* size values are OK if not in theme */}
+```
+
+#### When to Define New Colors
+
+1. Check if color exists in Tailwind's default palette
+2. Check if color is defined in `global.css` theme
+3. If not, add it to `@theme inline` in `global.css`
+4. Then use it with proper Tailwind classes
+
+**Resources**:
+
+- [Tailwind v4 Colors](https://tailwindcss.com/docs/colors)
+- [Customizing Theme](https://tailwindcss.com/docs/theme#customizing-your-theme)
+
+## Monorepo Structure
+
+- Respect the existing folder structure
+- Check dependencies in each workspace before making changes
+- Maintain consistency across monorepo packages
+
+## Best Practices
+
+### TypeScript
+
+- Use strict types
+- Avoid `any`, prefer `unknown` when necessary
+- Define interfaces for props and data
+
+### Components
+
+- Functional components with TypeScript
+- Typed props with interfaces
+- Use composition over inheritance
+
+### React Performance Optimization
+
+**CRITICAL RULES FOR CONSTANTS AND FUNCTIONS**:
+
+#### 1️⃣ **Static Data - Define Outside Component**
+
+❌ **INCORRECT** - Using `useMemo` for static data:
+
+```tsx
+const MyComponent = () => {
+  const OPTIONS = useMemo(
+    () => [
+      { id: 1, name: "Option 1" },
+      { id: 2, name: "Option 2" },
+    ],
+    []
+  );
+
+  const SLIDER_CLASS = useMemo(() => "w-full h-4 ...", []);
+  // ...
+};
+```
+
+✅ **CORRECT** - Define as constants outside component:
+
+```tsx
+// Constants defined once, shared across all instances
+const OPTIONS = [
+  { id: 1, name: "Option 1" },
+  { id: 2, name: "Option 2" },
+] as const;
+
+const SLIDER_CLASS_NAME = "w-full h-4 bg-gray-200 ...";
+
+const MyComponent = () => {
+  // Component code using OPTIONS and SLIDER_CLASS_NAME
+};
+```
+
+**Why?**
+
+- No memory allocation per component instance
+- No dependency tracking overhead
+- Better tree-shaking
+- Easier to test
+- Can be imported by other modules
+
+#### 2️⃣ **Pure Functions - Define Outside Component**
+
+❌ **INCORRECT** - Using `useCallback` for pure functions:
+
+```tsx
+const MyComponent = ({ data }: Props) => {
+  const formatData = useCallback((item: Item) => {
+    return item.name.toUpperCase();
+  }, []);
+  // ...
+};
+```
+
+✅ **CORRECT** - Define as pure function outside:
+
+```tsx
+// Pure function outside component
+function formatData(item: Item): string {
+  return item.name.toUpperCase();
+}
+
+const MyComponent = ({ data }: Props) => {
+  // Use formatData directly
+  return <div>{formatData(data)}</div>;
+};
+```
+
+**Why?**
+
+- No closure creation
+- No memoization overhead
+- Easier to unit test
+- Better code organization
+- Can be shared across components
+
+#### 3️⃣ **When to Use `useCallback`**
+
+✅ **USE `useCallback`** when the function:
+
+- Depends on props or state
+- Uses hooks
+- Needs access to component's closure
+- Is passed as a prop to memoized children
+
+```tsx
+const MyComponent = ({ onSave }: Props) => {
+  const [data, setData] = useState({});
+
+  // ✅ Needs state - use useCallback
+  const handleSubmit = useCallback(() => {
+    onSave(data);
+  }, [data, onSave]);
+
+  return <MemoizedChild onSubmit={handleSubmit} />;
+};
+```
+
+❌ **DON'T USE `useCallback`** when the function:
+
+- Is pure (doesn't use props/state)
+- Can receive all data via parameters
+- Is only used internally without passing as prop
+
+#### 4️⃣ **When to Use `useMemo`**
+
+✅ **USE `useMemo`** for:
+
+- Expensive computations
+- Derived data from props/state
+- Object/array references passed to memoized children
+
+```tsx
+const MyComponent = ({ items }: Props) => {
+  // ✅ Expensive computation - use useMemo
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => a.value - b.value);
+  }, [items]);
+
+  return <MemoizedList items={sortedItems} />;
+};
+```
+
+❌ **DON'T USE `useMemo`** for:
+
+- Static data (use constants outside component)
+- Simple transformations (the memoization overhead isn't worth it)
+- Strings or primitives that don't change
+
+#### 5️⃣ **Component Memoization**
+
+Use `React.memo()` when:
+
+- Component renders often with same props
+- Component is expensive to render
+- Parent re-renders frequently but props rarely change
+
+```tsx
+// ✅ Memoize expensive components
+const ExpensiveList = memo(({ items }: Props) => {
+  // Expensive rendering logic
+});
+
+// With custom comparison
+const SmartComponent = memo(
+  (props: Props) => {
+    /* ... */
+  },
+  (prevProps, nextProps) => {
+    // Return true if props are equal (skip re-render)
+    return prevProps.id === nextProps.id;
+  }
+);
+```
+
+#### 6️⃣ **Optimization Checklist**
+
+Before optimizing, ask:
+
+1. **Is it static?** → Move outside component as constant
+2. **Is it a pure function?** → Move outside component as function
+3. **Does it depend on props/state?** → Consider `useCallback`/`useMemo`
+4. **Is the component expensive?** → Consider `memo()`
+5. **Is there a measurable performance issue?** → Profile first!
+
+**Remember**: Premature optimization is bad, but understanding these patterns helps write efficient code from the start.
+
+### Styling with Tailwind
+
+- Use Tailwind utility classes
+- **NEVER use `<style>` tags** - always use Tailwind classes instead
+- Avoid custom CSS unless absolutely necessary
+- Use Tailwind responsive variants (`sm:`, `md:`, `lg:`, etc.)
+- Leverage state classes (`hover:`, `focus:`, `active:`, etc.)
+- For animations, use Tailwind's built-in animation utilities (`animate-pulse`, `animate-spin`, etc.)
+
+#### Converting CSS to Tailwind
+
+When removing `<style>` blocks:
+
+1. **Identify common patterns** before converting
+2. **Create reusable components** for repeated class combinations
+3. **Use `cn()` utility** for conditional classes
+4. **Maintain consistency** with existing Tailwind patterns
+
+**Example - Before:**
+
+```tsx
+<div className="panel">
+  <style>{`
+    .panel {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid #334155;
+      border-radius: 0.375rem;
+      padding: 0.75rem;
+    }
+  `}</style>
+</div>
+```
+
+**After:**
+
+```tsx
+<div className="bg-slate-800/50 border border-slate-700 rounded-md p-3">
+  {/* No style tag needed */}
+</div>
+```
+
+## shadcn/ui Components
+
+### Component System
+
+- **ALWAYS use shadcn/ui** for UI components when available
+- Install components on-demand: `pnpm dlx shadcn@latest add <component-name>`
+- Components are copied to `src/components/ui/` and fully customizable
+- **Official Component List**: https://ui.shadcn.com/docs/components
+
+### Installation Examples
+
+```bash
+# Install Button component
+pnpm dlx shadcn@latest add button
+
+# Install multiple components
+pnpm dlx shadcn@latest add button dialog card
+```
+
+### Component Usage
+
+- Import from `@/components/ui/component-name`
+- Components use Tailwind CSS v4 and are pre-styled
+- Customize via Tailwind classes or by editing the component file
+- Use `cn()` utility from `@/lib/utils` for conditional classes
+
+### Icons with Lucide
+
+- **ALWAYS use Lucide React** for icons
+- Already included as `lucide-react` dependency
+- **Icon Directory**: https://www.shadcn.io/icons/lucide (1,636+ icons)
+
+```typescript
+import { Heart, Star, Download } from 'lucide-react';
+
+<Heart className="w-4 h-4" />
+<Star className="w-5 h-5 text-yellow-500" />
+```
+
+### Best Practices
+
+- Check if component exists in shadcn before creating custom
+- Maintain consistent styling across all shadcn components
+- Use component variants when available (e.g., `variant="outline"`)
+- Keep icon sizes consistent (typically `w-4 h-4` or `w-5 h-5`)
+
+## Node.js Version Management
+
+### proto
+
+- Use `proto` for Node.js version management
+- Version specified in `.node-version` file at project root
+- Install specific version: `proto install node <version>`
+
+### Node.js Versions
+
+- **Current LTS**: Node.js 24.11.0 (Krypton)
+- Check version: `node -v`
+- Projects should specify `.node-version` file
+
+## DRY Principle - Component Reusability
+
+### Identifying Repetitive Patterns
+
+When you notice the same class combinations appearing 3+ times:
+
+1. **Create a reusable component** in `src/components/ui/`
+2. **Extract common props** into interfaces
+3. **Document the component** with JSDoc comments
+4. **Update existing code** to use the new component
+
+### Common Reusable Component Patterns
+
+#### Panel Components
+
+For consistent panel layouts:
+
+```tsx
+// src/components/ui/panel.tsx
+export function Panel({ title, onClose, children }: PanelProps) {
+  return (
+    <div className="bg-slate-800/50 border border-slate-700 rounded-md p-3">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 m-0">
+          {title}
+        </h3>
+        {onClose && <Button onClick={onClose}>✕</Button>}
+      </div>
+      {children}
+    </div>
+  );
+}
+```
+
+#### Form Field Groups
+
+For consistent form field styling:
+
+```tsx
+// src/components/ui/field-group.tsx
+export function FieldGroup({ label, children }: FieldGroupProps) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+```
+
+#### Empty States
+
+For consistent empty state messaging:
+
+```tsx
+// src/components/ui/empty-state.tsx
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+}: EmptyStateProps) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-8 px-4 text-slate-400">
+      <Icon size={48} className="opacity-30" />
+      <p className="text-xs font-semibold m-0">{title}</p>
+      {description && <span className="text-[0.6875rem]">{description}</span>}
+    </div>
+  );
+}
+```
+
+### Benefits of Reusable Components
+
+- ✅ **Consistency**: Same look & feel across the app
+- ✅ **Maintainability**: Change once, update everywhere
+- ✅ **Readability**: Less visual clutter in component code
+- ✅ **Type Safety**: Props validation with TypeScript
+- ✅ **Performance**: Can optimize in one place
+
+## State Management
+
+### Local State vs Global State
+
+- **Use `useState`** for component-local state
+- **Use Zustand** for global state that needs to be accessed across components
+- **Avoid prop drilling** - if passing props through 3+ levels, consider global state
+
+### Zustand Store Pattern
+
+For features like dialogs, toasts, or global UI state:
+
+```tsx
+// src/stores/useMyStore.ts
+import { create } from "zustand";
+
+interface MyState {
+  isOpen: boolean;
+  data: any;
+}
+
+interface MyActions {
+  open: (data: any) => void;
+  close: () => void;
+}
+
+export const useMyStore = create<MyState & MyActions>((set) => ({
+  isOpen: false,
+  data: null,
+
+  open: (data) => set({ isOpen: true, data }),
+  close: () => set({ isOpen: false, data: null }),
+}));
+
+// Usage in component
+function MyComponent() {
+  const { isOpen, open, close } = useMyStore();
+  // ...
+}
+```
+
+### When to Use Zustand
+
+✅ **Use Zustand for:**
+
+- Global UI state (modals, toasts, sidebars)
+- Shared data accessed by many components
+- State that needs to persist across route changes
+- Complex state that causes excessive prop drilling
+
+❌ **Don't use Zustand for:**
+
+- Form state (use controlled components or React Hook Form)
+- Derived state (use `useMemo`)
+- Server state (use React Query or similar)
+- Simple parent-child communication (use props)
+
+## Before Each Change
+
+1. Read the `package.json` of the corresponding workspace
+2. Verify the Tailwind version (must be v4)
+3. Check if shadcn component exists before creating custom UI
+4. **Check for existing reusable components** in `src/components/ui/`
+5. **Identify repetitive patterns** and consider creating new reusable components
+6. Confirm the project structure
+7. Respect existing code conventions
+8. Use Lucide icons from `lucide-react` package
+9. **Never use `<style>` tags** - use Tailwind classes instead

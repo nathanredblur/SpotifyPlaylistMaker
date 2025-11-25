@@ -1,13 +1,21 @@
 import { useState } from "react";
-import type { CollectionInfo } from "@/types/spotify";
+import type { CollectionInfo, CategoryBin, Track } from "@/types/spotify";
 
 interface MainAppProps {
   accessToken: string;
   userId: string;
   collectionInfo: CollectionInfo;
+  bins: CategoryBin[];
+  tracks: Map<string, Track>;
 }
 
-export function MainApp({ accessToken, userId, collectionInfo }: MainAppProps) {
+export function MainApp({
+  accessToken,
+  userId,
+  collectionInfo,
+  bins,
+  tracks,
+}: MainAppProps) {
   const [activeTab, setActiveTab] = useState<"tracks" | "plots" | "staging">(
     "tracks"
   );
@@ -30,14 +38,35 @@ export function MainApp({ accessToken, userId, collectionInfo }: MainAppProps) {
         {/* Sidebar */}
         <aside className="w-60 bg-slate-900/50 backdrop-blur-sm border-r border-white/10 overflow-y-auto">
           <div className="p-4 space-y-4">
-            <div className="text-white">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                Categories
-              </h3>
-              <p className="text-sm text-slate-300">
-                Sidebar content will go here
-              </p>
-            </div>
+            {bins.map((bin) => (
+              <div key={bin.name} className="space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  {bin.name}
+                </h3>
+                <ul className="space-y-1">
+                  {bin.nodes
+                    .filter((node) => node.tracks.length >= 3)
+                    .slice(0, 10)
+                    .map((node) => (
+                      <li
+                        key={node.name}
+                        className="text-sm text-slate-300 hover:text-white cursor-pointer hover:bg-white/5 px-2 py-1 rounded transition-colors"
+                      >
+                        <span className="capitalize">{node.name}</span>
+                        <span className="text-xs text-slate-500 ml-2">
+                          ({node.tracks.length})
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            ))}
+
+            {bins.length === 0 && (
+              <div className="text-slate-400 text-sm text-center py-8">
+                No categories yet
+              </div>
+            )}
           </div>
         </aside>
 
@@ -83,7 +112,14 @@ export function MainApp({ accessToken, userId, collectionInfo }: MainAppProps) {
               {activeTab === "tracks" && (
                 <div className="text-white">
                   <h2 className="text-2xl font-bold mb-4">Track List</h2>
-                  <p className="text-slate-300">Track table will go here</p>
+                  <div className="bg-slate-800/30 rounded-lg p-6 text-center">
+                    <p className="text-lg text-slate-300 mb-2">
+                      {tracks.size} tracks loaded
+                    </p>
+                    <p className="text-sm text-slate-400">
+                      Select a category from the sidebar to view tracks
+                    </p>
+                  </div>
                 </div>
               )}
 

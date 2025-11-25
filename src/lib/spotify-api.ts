@@ -196,6 +196,8 @@ export class SpotifyAPI {
 
   // Audio Features
   async getAudioFeatures(trackIds: string[]): Promise<AudioFeaturesResponse> {
+    // Note: Spotify API expects comma-separated IDs
+    // URLSearchParams will encode commas, which is actually fine for this endpoint
     return this.request<AudioFeaturesResponse>("/audio-features", {
       params: { ids: trackIds.join(",") },
     });

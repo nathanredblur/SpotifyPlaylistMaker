@@ -11,7 +11,12 @@ import type {
   SpotifyArtist,
   SpotifyAlbum,
 } from "@/types/spotify";
-import { useSpotifyCache } from "@/stores/useSpotifyCache";
+import {
+  AudioFeaturesCache,
+  ArtistsCache,
+  AlbumsCache,
+  FailedRequestsCache,
+} from "./indexeddb-cache";
 
 const BASE_URL = "https://api.spotify.com/v1";
 const MAX_RETRIES = 10;
@@ -44,12 +49,22 @@ export class SpotifyAPI {
     let retries = 0;
 
     const makeRequest = async (): Promise<T> => {
-      const url = new URL(`${BASE_URL}${endpoint}`);
+      let url = `${BASE_URL}${endpoint}`;
 
       if (params) {
+        // Build query string manually to avoid encoding commas in ID lists
+        const queryParts: string[] = [];
         Object.entries(params).forEach(([key, value]) => {
-          url.searchParams.append(key, String(value));
+          // For 'ids' parameter, don't encode commas
+          if (key === "ids") {
+            queryParts.push(`${key}=${value}`);
+          } else {
+            queryParts.push(`${key}=${encodeURIComponent(String(value))}`);
+          }
         });
+        if (queryParts.length > 0) {
+          url += `?${queryParts.join("&")}`;
+        }
       }
 
       const headers: HeadersInit = {
@@ -61,7 +76,7 @@ export class SpotifyAPI {
       }
 
       try {
-        const response = await fetch(url.toString(), {
+        const response = await fetch(url, {
           method,
           headers,
           body: body ? JSON.stringify(body) : undefined,
@@ -200,109 +215,137 @@ export class SpotifyAPI {
 
   // Audio Features (with caching)
   async getAudioFeatures(trackIds: string[]): Promise<AudioFeaturesResponse> {
-    const cache = useSpotifyCache.getState();
-    
+    // Check failed requests first
+    const failedIds = await FailedRequestsCache.getFailedAudioFeatures();
+    const failedSet = new Set(failedIds);
+
+    // Filter out failed IDs
+    const validIds = trackIds.filter((id) => !failedSet.has(id));
+    const skippedCount = trackIds.length - validIds.length;
+
+    if (skippedCount > 0) {
+      console.log(
+        `⚠️ Skipping ${skippedCount} previously failed audio features (403)`
+      );
+    }
+
+    if (validIds.length === 0) {
+      return { audio_features: [] };
+    }
+
     // Check cache for existing data
-    const { cached, missing } = cache.getMultipleAudioFeatures(trackIds);
-    
+    const { cached, missing } = await AudioFeaturesCache.getMultiple(validIds);
+
     // If all tracks are cached, return immediately
     if (missing.length === 0) {
       console.log(`✅ Cache hit: ${cached.length} audio features from cache`);
       return { audio_features: cached };
     }
-    
+
     // Fetch missing tracks from API
     console.log(
       `🔄 Fetching ${missing.length} audio features (${cached.length} from cache)`
     );
-    
-    const response = await this.request<AudioFeaturesResponse>("/audio-features", {
-      params: { ids: missing.join(",") },
-    });
-    
-    // Store fetched data in cache
-    if (response.audio_features) {
-      const validFeatures = response.audio_features.filter(
-        (f): f is AudioFeatures => f !== null
+
+    try {
+      const response = await this.request<AudioFeaturesResponse>(
+        "/audio-features",
+        {
+          params: { ids: missing.join(",") },
+        }
       );
-      cache.setMultipleAudioFeatures(validFeatures);
+
+      // Store fetched data in cache
+      if (response.audio_features) {
+        const validFeatures = response.audio_features.filter(
+          (f): f is AudioFeatures => f !== null
+        );
+        await AudioFeaturesCache.setMultiple(validFeatures);
+      }
+
+      // Combine cached and freshly fetched data
+      const allFeatures = [...cached, ...(response.audio_features || [])];
+
+      return { audio_features: allFeatures };
+    } catch (error) {
+      // If 403 error, mark these tracks as failed
+      if (error instanceof SpotifyAPIError && error.status === 403) {
+        await FailedRequestsCache.markAudioFeaturesFailed(missing);
+        console.warn(
+          `⚠️ Audio features endpoint returned 403 (Development mode restriction)`
+        );
+      }
+
+      // Return only cached features
+      return { audio_features: cached };
     }
-    
-    // Combine cached and freshly fetched data
-    const allFeatures = [...cached, ...(response.audio_features || [])];
-    
-    return { audio_features: allFeatures };
   }
 
   // Artists (with caching)
   async getArtists(artistIds: string[]): Promise<ArtistsResponse> {
-    const cache = useSpotifyCache.getState();
-    
     // Check cache for existing data
-    const { cached, missing } = cache.getMultipleArtists(artistIds);
-    
+    const { cached, missing } = await ArtistsCache.getMultiple(artistIds);
+
     // If all artists are cached, return immediately
     if (missing.length === 0) {
       console.log(`✅ Cache hit: ${cached.length} artists from cache`);
       return { artists: cached };
     }
-    
+
     // Fetch missing artists from API
     console.log(
       `🔄 Fetching ${missing.length} artists (${cached.length} from cache)`
     );
-    
+
     const response = await this.request<ArtistsResponse>("/artists", {
       params: { ids: missing.join(",") },
     });
-    
+
     // Store fetched data in cache
     if (response.artists) {
       const validArtists = response.artists.filter(
         (a): a is SpotifyArtist => a !== null
       );
-      cache.setMultipleArtists(validArtists);
+      await ArtistsCache.setMultiple(validArtists);
     }
-    
+
     // Combine cached and freshly fetched data
     const allArtists = [...cached, ...(response.artists || [])];
-    
+
     return { artists: allArtists };
   }
 
   // Albums (with caching)
   async getAlbums(albumIds: string[]): Promise<AlbumsResponse> {
-    const cache = useSpotifyCache.getState();
-    
     // Check cache for existing data
-    const { cached, missing } = cache.getMultipleAlbums(albumIds);
-    
+    const { cached, missing } = await AlbumsCache.getMultiple(albumIds);
+
     // If all albums are cached, return immediately
     if (missing.length === 0) {
       console.log(`✅ Cache hit: ${cached.length} albums from cache`);
       return { albums: cached };
     }
-    
+
     // Fetch missing albums from API
     console.log(
       `🔄 Fetching ${missing.length} albums (${cached.length} from cache)`
     );
-    
+
     const response = await this.request<AlbumsResponse>("/albums", {
       params: { ids: missing.join(",") },
     });
-    
+
     // Store fetched data in cache
     if (response.albums) {
       const validAlbums = response.albums.filter(
         (a): a is SpotifyAlbum => a !== null
       );
-      cache.setMultipleAlbums(validAlbums);
+      await AlbumsCache.setMultiple(validAlbums);
     }
-    
+
     // Combine cached and freshly fetched data
     const allAlbums = [...cached, ...(response.albums || [])];
-    
+
     return { albums: allAlbums };
   }
 }

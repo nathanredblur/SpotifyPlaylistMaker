@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { CollectionType } from "@/types/spotify";
 import type { LoadingStats } from "@/hooks/useMusicLoader";
-import { useCacheStats } from "@/stores/useSpotifyCache";
 
 interface LoadingScreenProps {
   progress: number;
@@ -27,8 +26,6 @@ export function LoadingScreen({
   onStop,
   stats,
 }: LoadingScreenProps) {
-  const cacheStats = useCacheStats();
-
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl backdrop-blur-lg bg-white/5 border-white/10">
@@ -114,33 +111,10 @@ export function LoadingScreen({
             </div>
           )}
 
-          {/* Cache Stats Section */}
-          {cacheStats.totalRequests > 0 && (
-            <div className="text-center text-slate-300 text-xs space-y-1 bg-slate-800/20 rounded-lg p-3 border border-slate-700/30">
-              <p className="text-slate-400 font-semibold mb-1">
-                Cache Performance
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-slate-400">
-                <div>
-                  <span className="text-green-400 font-semibold">
-                    {cacheStats.hitRate}%
-                  </span>{" "}
-                  hit rate
-                </div>
-                <div>
-                  <span className="text-blue-400 font-semibold">
-                    {cacheStats.audioFeaturesHits +
-                      cacheStats.artistsHits +
-                      cacheStats.albumsHits}
-                  </span>{" "}
-                  cached
-                </div>
-              </div>
-              <p className="text-slate-500 text-[0.65rem] pt-1">
-                Using IndexedDB to speed up loading
-              </p>
-            </div>
-          )}
+          {/* Cache Info */}
+          <div className="text-center text-slate-500 text-xs">
+            <p>Using IndexedDB to cache data and speed up loading</p>
+          </div>
         </CardContent>
       </Card>
     </div>

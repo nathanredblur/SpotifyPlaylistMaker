@@ -15,9 +15,12 @@ import {
   categorizeTrack,
   sortNodesByTrackCount,
 } from "@/lib/categorizer";
+import { SavedTracksCache } from "@/lib/indexeddb-cache";
+import { CACHE_TTL } from "@/config/cache";
 import type {
   Track,
   CategoryBin,
+  SavedTrackItem,
   CollectionInfo,
   SpotifyArtist,
   SpotifyAlbum,
@@ -181,12 +184,60 @@ export function useMusicLoader(): UseMusicLoaderResult {
   ): Promise<void> {
     setStats((prev) => ({ ...prev, currentPlaylist: "Your Saved Tracks" }));
 
+    // Check if we have valid cached data
+    const metadata = await SavedTracksCache.getMetadata();
+    const isValid =
+      metadata && Date.now() - metadata.lastSync < CACHE_TTL.SAVED_TRACKS;
+
+    if (isValid) {
+      const cachedTracks = await SavedTracksCache.getAll();
+      if (cachedTracks) {
+        const ageMinutes = Math.floor((Date.now() - metadata.lastSync) / 60000);
+        console.log(
+          `✅ Saved tracks cache hit (${cachedTracks.length} tracks, ${ageMinutes}min old)`
+        );
+
+        // Process cached tracks
+        const tracks = cachedTracks
+          .map((item: SavedTrackItem) =>
+            processTrackItem(item, "Your Saved Tracks")
+          )
+          .filter((t: Track | null): t is Track => t !== null);
+
+        await enrichTracks(
+          tracks,
+          api,
+          categoryBins,
+          trackMap,
+          artistMap,
+          albumMap
+        );
+
+        setStats((prev) => ({
+          ...prev,
+          totalTracks: metadata.total,
+          processedTracks: cachedTracks.length,
+        }));
+
+        return;
+      }
+    }
+
+    // If cache is invalid or doesn't exist, fetch from API
+    console.log("🔄 Fetching saved tracks from Spotify API");
+
     let offset = 0;
     const limit = 50;
     let hasMore = true;
+    const allItems: SavedTrackItem[] = [];
+    let totalTracks = 0;
 
     while (hasMore && !shouldStop) {
       const response = await api.getSavedTracks(limit, offset);
+      totalTracks = response.total;
+
+      // Store raw items for caching
+      allItems.push(...response.items);
 
       // Process tracks
       const newTracks = response.items
@@ -211,6 +262,11 @@ export function useMusicLoader(): UseMusicLoaderResult {
         totalTracks: response.total,
         processedTracks: offset,
       }));
+    }
+
+    // Save all fetched tracks to cache
+    if (allItems.length > 0) {
+      await SavedTracksCache.setAll(allItems, totalTracks);
     }
   }
 

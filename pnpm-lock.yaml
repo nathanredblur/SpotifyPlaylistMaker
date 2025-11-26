@@ -50,9 +50,9 @@ importers:
       dayjs:
         specifier: ^1.11.19
         version: 1.11.19
-      idb-keyval:
-        specifier: ^6.2.2
-        version: 6.2.2
+      idb:
+        specifier: ^8.0.3
+        version: 8.0.3
       lucide-react:
         specifier: ^0.554.0
         version: 0.554.0(react@19.2.0)
@@ -1547,6 +1547,9 @@ packages:
 
   idb-keyval@6.2.2:
     resolution: {integrity: sha512-yjD9nARJ/jb1g+CvD0tlhUHOrJ9Sy0P8T9MF3YaLlHnSRpwPfpTX0XIvpmw3gAJUmEu3FiICLBDPXVwyEvrleg==}
+
+  idb@8.0.3:
+    resolution: {integrity: sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==}
 
   import-meta-resolve@4.2.0:
     resolution: {integrity: sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg==}
@@ -4055,7 +4058,10 @@ snapshots:
 
   http-cache-semantics@4.2.0: {}
 
-  idb-keyval@6.2.2: {}
+  idb-keyval@6.2.2:
+    optional: true
+
+  idb@8.0.3: {}
 
   import-meta-resolve@4.2.0: {}
 

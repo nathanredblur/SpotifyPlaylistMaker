@@ -8,6 +8,11 @@ alwaysApply: true
 
 - **ALWAYS use TypeScript** in all code files
 - **ALWAYS read the `package.json`** before making any changes to determine the technologies used in the project
+- **ALWAYS use English** for all code, comments, documentation, and commit messages
+  - ❌ NO Spanish in code comments
+  - ❌ NO Spanish in documentation
+  - ❌ NO Spanish in variable/function names
+  - ✅ English only for all technical content
 
 ## Tailwind CSS v4
 
@@ -539,6 +544,27 @@ function MyComponent() {
 - Server state (use React Query or similar)
 - Simple parent-child communication (use props)
 
+## Documentation Policy
+
+**CRITICAL**: Do NOT create documentation files unless:
+
+1. **Explicitly requested by the user**, OR
+2. **Critical for future iterations** (either in this chat or a new one)
+
+Examples of when NOT to create docs:
+
+- ❌ After implementing a feature (unless asked)
+- ❌ "For reference" or "for completeness"
+- ❌ Summary files, optimization reports, etc.
+
+Examples of when TO create docs:
+
+- ✅ User explicitly asks: "document this"
+- ✅ Complex system that will be hard to understand later without docs
+- ✅ API contracts or interfaces that other developers will use
+
+**Default behavior**: Focus on code implementation, not documentation.
+
 ## Before Each Change
 
 1. Read the `package.json` of the corresponding workspace
@@ -550,3 +576,4 @@ function MyComponent() {
 7. Respect existing code conventions
 8. Use Lucide icons from `lucide-react` package
 9. **Never use `<style>` tags** - use Tailwind classes instead
+10. **Do NOT create documentation** unless explicitly requested

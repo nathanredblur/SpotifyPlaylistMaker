@@ -323,7 +323,16 @@ export function AdminDashboard() {
         throw new Error("No access token found. Please log in again.");
       }
 
-      const { token } = JSON.parse(tokenData);
+      const { token, expiresAt } = JSON.parse(tokenData);
+
+      // Check if token is expired
+      if (Date.now() >= expiresAt) {
+        setMaintenanceMessage({
+          type: "error",
+          text: "Your Spotify session has expired. Please go back to the home page and log in again.",
+        });
+        return;
+      }
 
       const response = await fetch("/api/sync", {
         method: "POST",
@@ -338,6 +347,17 @@ export function AdminDashboard() {
       });
 
       const data = await response.json();
+
+      // Handle 401 Unauthorized (expired token)
+      if (response.status === 401) {
+        setMaintenanceMessage({
+          type: "error",
+          text: "Your Spotify session has expired. Please go back to the home page and log in again.",
+        });
+        // Clear the expired token
+        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+        return;
+      }
 
       if (data.success) {
         setMaintenanceMessage({
@@ -699,7 +719,16 @@ export function AdminDashboard() {
                       : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
                   }`}
                 >
-                  {maintenanceMessage.text}
+                  <p className="mb-0">{maintenanceMessage.text}</p>
+                  {maintenanceMessage.type === "error" &&
+                    maintenanceMessage.text.includes("expired") && (
+                      <Button
+                        onClick={() => (window.location.href = "/")}
+                        className="mt-3 bg-blue-600 hover:bg-blue-700"
+                      >
+                        Go to Login
+                      </Button>
+                    )}
                 </div>
               )}
 

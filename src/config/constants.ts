@@ -29,7 +29,7 @@ export const SPOTIFY_API = {
  */
 export const SOUNDCHARTS_API = {
   /** Maximum number of tracks to fetch per sync */
-  MAX_TRACKS_PER_SYNC: 100,
+  MAX_TRACKS_PER_SYNC: 1000,
 
   /** Delay between requests to avoid rate limiting (ms) */
   REQUEST_DELAY: 100,
@@ -67,22 +67,41 @@ export const FAILED_REQUESTS = {
 
 /**
  * Cache TTL (Time To Live) Configuration
+ *
+ * Note: Some data is immutable and never expires:
+ * - Audio features (tempo, energy, etc.) are permanent track properties
+ * - Artist information rarely changes
+ * - Album information is static
+ * - Track metadata (name, duration, etc.) is permanent
+ *
+ * Only user-specific data (saved tracks list) needs periodic refresh
  */
 export const CACHE_TTL = {
-  /** Saved tracks cache duration (ms) */
-  SAVED_TRACKS: 5 * 60 * 1000, // 5 minutes
+  /** User's saved tracks list refresh interval (ms) - check for new/removed tracks */
+  USER_TRACKS_REFRESH: 24 * 60 * 60 * 1000, // 24 hours
 
-  /** Audio features cache duration (ms) */
-  AUDIO_FEATURES: 24 * 60 * 60 * 1000, // 24 hours
+  /** Failed requests retry interval (ms) */
+  FAILED_REQUESTS_RETRY: 60 * 60 * 1000, // 1 hour
 
-  /** Artists cache duration (ms) */
-  ARTISTS: 24 * 60 * 60 * 1000, // 24 hours
+  /** User profile cache (ms) */
+  USER_PROFILE: 7 * 24 * 60 * 60 * 1000, // 7 days
+} as const;
 
-  /** Albums cache duration (ms) */
-  ALBUMS: 24 * 60 * 60 * 1000, // 24 hours
+/**
+ * Data that NEVER expires (immutable)
+ */
+export const IMMUTABLE_DATA = {
+  /** Audio features never change for a track */
+  AUDIO_FEATURES: true,
 
-  /** Failed requests cache duration (ms) */
-  FAILED_REQUESTS: 60 * 60 * 1000, // 1 hour
+  /** Artist information is permanent */
+  ARTISTS: true,
+
+  /** Album information is permanent */
+  ALBUMS: true,
+
+  /** Track metadata (name, duration, ISRC) is permanent */
+  TRACK_METADATA: true,
 } as const;
 
 /**

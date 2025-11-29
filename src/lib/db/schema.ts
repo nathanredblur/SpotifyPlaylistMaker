@@ -3,23 +3,82 @@
  * This file contains all table creation SQL statements
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /**
- * Tracks table - stores complete Spotify + SoundCharts data
+ * Users table - stores Spotify user information and their track associations
+ * This allows multi-user support and tracks which tracks belong to which user
+ */
+export const CREATE_USERS_TABLE = `
+CREATE TABLE IF NOT EXISTS users (
+  spotify_user_id TEXT PRIMARY KEY,
+  
+  -- User profile
+  display_name TEXT,
+  email TEXT,
+  profile_image_url TEXT,
+  country TEXT,
+  
+  -- User data (JSON)
+  spotify_user_data TEXT,              -- JSON: Complete Spotify user object
+  
+  -- Last sync info
+  last_sync_at TEXT,                   -- ISO datetime of last successful sync
+  last_track_added_at TEXT,            -- Most recent track added_at from Spotify
+  
+  -- Metadata
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+export const CREATE_USERS_INDEXES = `
+CREATE INDEX IF NOT EXISTS idx_users_last_sync ON users(last_sync_at);
+`;
+
+/**
+ * User Tracks junction table - links users to their saved tracks
+ * This is a many-to-many relationship (tracks can be saved by multiple users)
+ */
+export const CREATE_USER_TRACKS_TABLE = `
+CREATE TABLE IF NOT EXISTS user_tracks (
+  user_id TEXT NOT NULL,
+  track_id TEXT NOT NULL,
+  
+  -- When the user added this track to their library
+  added_at TEXT NOT NULL,
+  
+  -- Metadata
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  
+  PRIMARY KEY (user_id, track_id),
+  FOREIGN KEY (user_id) REFERENCES users(spotify_user_id) ON DELETE CASCADE,
+  FOREIGN KEY (track_id) REFERENCES tracks(spotify_id) ON DELETE CASCADE
+);
+`;
+
+export const CREATE_USER_TRACKS_INDEXES = `
+CREATE INDEX IF NOT EXISTS idx_user_tracks_user_id ON user_tracks(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_tracks_track_id ON user_tracks(track_id);
+CREATE INDEX IF NOT EXISTS idx_user_tracks_added_at ON user_tracks(added_at DESC);
+`;
+
+/**
+ * Tracks table - stores IMMUTABLE Spotify + SoundCharts data
+ * Note: This data NEVER expires. Audio features, artist info, album info are permanent.
+ * Only the user_tracks table changes over time (users adding/removing tracks).
  */
 export const CREATE_TRACKS_TABLE = `
 CREATE TABLE IF NOT EXISTS tracks (
   spotify_id TEXT PRIMARY KEY,
   soundcharts_uuid TEXT UNIQUE,
   
-  -- Spotify data (saved track response)
+  -- Spotify data (IMMUTABLE - never expires)
   spotify_data TEXT NOT NULL,           -- JSON: Complete Spotify track object
-  added_at TEXT,                        -- When user added to library
   
-  -- SoundCharts data (audio features + metadata)
+  -- SoundCharts data (IMMUTABLE - audio features never change)
   soundcharts_data TEXT,                -- JSON: Complete SoundCharts response
-  soundcharts_fetched_at TEXT,          -- ISO datetime when we got SoundCharts data
+  soundcharts_fetched_at TEXT,          -- ISO datetime when we got SoundCharts data (for info only)
   
   -- Denormalized fields for fast queries (from Spotify)
   name TEXT NOT NULL,
@@ -172,8 +231,12 @@ CREATE TABLE IF NOT EXISTS schema_version (
  * All table creation statements in order
  */
 export const ALL_TABLES = [
+  CREATE_USERS_TABLE,
+  CREATE_USERS_INDEXES,
   CREATE_TRACKS_TABLE,
   CREATE_TRACKS_INDEXES,
+  CREATE_USER_TRACKS_TABLE,
+  CREATE_USER_TRACKS_INDEXES,
   CREATE_FAILED_REQUESTS_TABLE,
   CREATE_FAILED_REQUESTS_INDEXES,
   CREATE_SYNC_HISTORY_TABLE,

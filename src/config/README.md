@@ -18,13 +18,31 @@ const refreshInterval = ADMIN_DASHBOARD.REFRESH_INTERVAL;
 
 **Categories:**
 - **API Rate Limits**: Spotify and SoundCharts API configuration
-- **Cache & Storage**: TTL values and storage keys
+- **Cache & Storage**: TTL values and storage keys (with immutable data support)
 - **Database**: Pagination and batch sizes
 - **UI Configuration**: Dashboard refresh intervals and display limits
 - **Sync Configuration**: Batch processing and timing
 - **Error Codes**: HTTP status codes and error messages
 - **Feature Flags**: Enable/disable features
 - **Audio Features**: Thresholds and ranges for audio analysis
+
+## Important: Immutable Data
+
+Some data in the application **NEVER expires** because it's immutable:
+
+- **Audio Features** (tempo, energy, danceability, etc.) - These are permanent properties of a track
+- **Artist Information** - Artist names and metadata don't change
+- **Album Information** - Album details are static
+- **Track Metadata** - Track name, duration, ISRC are permanent
+
+Only **user-specific data** changes over time:
+- User's saved tracks list (tracks can be added/removed)
+- User profile information
+
+The database schema reflects this with:
+- `tracks` table: Stores immutable track data (never deleted, only added)
+- `users` table: Stores user profile information
+- `user_tracks` table: Junction table linking users to their tracks (this is what changes)
 
 ### `spotify.ts`
 Spotify OAuth configuration including client ID, redirect URIs, and scopes.

@@ -11,12 +11,6 @@ import type {
   SpotifyArtist,
   SpotifyAlbum,
 } from "@/types/spotify";
-import {
-  AudioFeaturesCache,
-  ArtistsCache,
-  AlbumsCache,
-  FailedRequestsCache,
-} from "./indexeddb-cache";
 
 import { SPOTIFY_API } from "@/config/constants";
 
@@ -93,7 +87,10 @@ export class SpotifyAPI {
 
         // Handle 401 - Unauthorized
         if (response.status === 401) {
-          window.location.href = "/";
+          // Only redirect in browser context
+          if (typeof window !== "undefined") {
+            window.location.href = "/";
+          }
           throw new SpotifyAPIError("Unauthorized", 401);
         }
 
@@ -107,9 +104,9 @@ export class SpotifyAPI {
             console.log(
               `Rate limited. Retry ${retries}/${MAX_RETRIES} after ${delay}ms`
             );
-                    await new Promise((resolve) =>
-                      setTimeout(resolve, delay + retries * SPOTIFY_API.RETRY_DELAY)
-                    );
+            await new Promise((resolve) =>
+              setTimeout(resolve, delay + retries * SPOTIFY_API.RETRY_DELAY)
+            );
             return makeRequest();
           }
           throw new SpotifyAPIError("Rate limit exceeded", 429);
@@ -120,7 +117,9 @@ export class SpotifyAPI {
           if (retries < MAX_RETRIES) {
             retries++;
             console.log(`Server error. Retry ${retries}/${MAX_RETRIES}`);
-                    await new Promise((resolve) => setTimeout(resolve, SPOTIFY_API.RETRY_DELAY));
+            await new Promise((resolve) =>
+              setTimeout(resolve, SPOTIFY_API.RETRY_DELAY)
+            );
             return makeRequest();
           }
           throw new SpotifyAPIError("Server error", response.status);
@@ -215,140 +214,37 @@ export class SpotifyAPI {
     );
   }
 
-  // Audio Features (with caching)
+  // Audio Features (no client-side caching - handled by server/SQLite)
   async getAudioFeatures(trackIds: string[]): Promise<AudioFeaturesResponse> {
-    // Check failed requests first
-    const failedIds = await FailedRequestsCache.getFailedAudioFeatures();
-    const failedSet = new Set(failedIds);
-
-    // Filter out failed IDs
-    const validIds = trackIds.filter((id) => !failedSet.has(id));
-    const skippedCount = trackIds.length - validIds.length;
-
-    if (skippedCount > 0) {
-      console.log(
-        `⚠️ Skipping ${skippedCount} previously failed audio features (403)`
-      );
-    }
-
-    if (validIds.length === 0) {
+    if (trackIds.length === 0) {
       return { audio_features: [] };
     }
 
-    // Check cache for existing data
-    const { cached, missing } = await AudioFeaturesCache.getMultiple(validIds);
-
-    // If all tracks are cached, return immediately
-    if (missing.length === 0) {
-      console.log(`✅ Cache hit: ${cached.length} audio features from cache`);
-      return { audio_features: cached };
-    }
-
-    // Fetch missing tracks from API
-    console.log(
-      `🔄 Fetching ${missing.length} audio features (${cached.length} from cache)`
-    );
-
-    try {
-      const response = await this.request<AudioFeaturesResponse>(
-        "/audio-features",
-        {
-          params: { ids: missing.join(",") },
-        }
-      );
-
-      // Store fetched data in cache
-      if (response.audio_features) {
-        const validFeatures = response.audio_features.filter(
-          (f): f is AudioFeatures => f !== null
-        );
-        await AudioFeaturesCache.setMultiple(validFeatures);
-      }
-
-      // Combine cached and freshly fetched data
-      const allFeatures = [...cached, ...(response.audio_features || [])];
-
-      return { audio_features: allFeatures };
-    } catch (error) {
-      // If 403 error, mark these tracks as failed
-      if (error instanceof SpotifyAPIError && error.status === 403) {
-        await FailedRequestsCache.markAudioFeaturesFailed(missing);
-        console.warn(
-          `⚠️ Audio features endpoint returned 403 (Development mode restriction)`
-        );
-      }
-
-      // Return only cached features
-      return { audio_features: cached };
-    }
+    return this.request<AudioFeaturesResponse>("/audio-features", {
+      params: { ids: trackIds.join(",") },
+    });
   }
 
-  // Artists (with caching)
+  // Artists (no client-side caching - handled by server/SQLite)
   async getArtists(artistIds: string[]): Promise<ArtistsResponse> {
-    // Check cache for existing data
-    const { cached, missing } = await ArtistsCache.getMultiple(artistIds);
-
-    // If all artists are cached, return immediately
-    if (missing.length === 0) {
-      console.log(`✅ Cache hit: ${cached.length} artists from cache`);
-      return { artists: cached };
+    if (artistIds.length === 0) {
+      return { artists: [] };
     }
 
-    // Fetch missing artists from API
-    console.log(
-      `🔄 Fetching ${missing.length} artists (${cached.length} from cache)`
-    );
-
-    const response = await this.request<ArtistsResponse>("/artists", {
-      params: { ids: missing.join(",") },
+    return this.request<ArtistsResponse>("/artists", {
+      params: { ids: artistIds.join(",") },
     });
-
-    // Store fetched data in cache
-    if (response.artists) {
-      const validArtists = response.artists.filter(
-        (a): a is SpotifyArtist => a !== null
-      );
-      await ArtistsCache.setMultiple(validArtists);
-    }
-
-    // Combine cached and freshly fetched data
-    const allArtists = [...cached, ...(response.artists || [])];
-
-    return { artists: allArtists };
   }
 
-  // Albums (with caching)
+  // Albums (no client-side caching - handled by server/SQLite)
   async getAlbums(albumIds: string[]): Promise<AlbumsResponse> {
-    // Check cache for existing data
-    const { cached, missing } = await AlbumsCache.getMultiple(albumIds);
-
-    // If all albums are cached, return immediately
-    if (missing.length === 0) {
-      console.log(`✅ Cache hit: ${cached.length} albums from cache`);
-      return { albums: cached };
+    if (albumIds.length === 0) {
+      return { albums: [] };
     }
 
-    // Fetch missing albums from API
-    console.log(
-      `🔄 Fetching ${missing.length} albums (${cached.length} from cache)`
-    );
-
-    const response = await this.request<AlbumsResponse>("/albums", {
-      params: { ids: missing.join(",") },
+    return this.request<AlbumsResponse>("/albums", {
+      params: { ids: albumIds.join(",") },
     });
-
-    // Store fetched data in cache
-    if (response.albums) {
-      const validAlbums = response.albums.filter(
-        (a): a is SpotifyAlbum => a !== null
-      );
-      await AlbumsCache.setMultiple(validAlbums);
-    }
-
-    // Combine cached and freshly fetched data
-    const allAlbums = [...cached, ...(response.albums || [])];
-
-    return { albums: allAlbums };
   }
 }
 

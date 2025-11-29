@@ -200,13 +200,13 @@ export const POST: APIRoute = async ({ request }) => {
     const allTracks = repos.tracks.getBySpotifyIds(allTrackIds);
 
     // Step 5: Mark sync as completed
-    const mostRecentTrack = repos.tracks.getMostRecentlyAdded();
+    const mostRecentTrack = repos.tracks.getMostRecentlyCreated();
     repos.sync.markCompleted(syncId, {
       total_tracks: allTracks.length,
       new_tracks: newTracks.length,
       soundcharts_fetched: soundChartsFetched,
       failed_tracks: soundChartsFailed,
-      last_added_at: mostRecentTrack?.added_at || undefined,
+      last_added_at: mostRecentTrack?.created_at || undefined,
     });
 
     const duration = Date.now() - startTime;
@@ -339,7 +339,6 @@ async function saveTracksToDatabase(
     return {
       spotify_id: item.track.id,
       spotify_data: JSON.stringify(item.track),
-      added_at: item.added_at,
       name: item.track.name,
       duration_ms: item.track.duration_ms,
       explicit: item.track.explicit,

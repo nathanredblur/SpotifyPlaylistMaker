@@ -3,7 +3,7 @@
  * This file contains all table creation SQL statements
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3; // v3: Removed UNIQUE constraint from soundcharts_uuid
 
 /**
  * Users table - stores Spotify user information and their track associations
@@ -71,7 +71,7 @@ CREATE INDEX IF NOT EXISTS idx_user_tracks_added_at ON user_tracks(added_at DESC
 export const CREATE_TRACKS_TABLE = `
 CREATE TABLE IF NOT EXISTS tracks (
   spotify_id TEXT PRIMARY KEY,
-  soundcharts_uuid TEXT UNIQUE,
+  soundcharts_uuid TEXT,                -- Note: NOT UNIQUE - multiple Spotify tracks can have same SoundCharts UUID
   
   -- Spotify data (IMMUTABLE - never expires)
   spotify_data TEXT NOT NULL,           -- JSON: Complete Spotify track object
@@ -114,7 +114,6 @@ CREATE TABLE IF NOT EXISTS tracks (
 export const CREATE_TRACKS_INDEXES = `
 CREATE INDEX IF NOT EXISTS idx_tracks_name ON tracks(name);
 CREATE INDEX IF NOT EXISTS idx_tracks_isrc ON tracks(isrc);
-CREATE INDEX IF NOT EXISTS idx_tracks_added_at ON tracks(added_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tracks_soundcharts_uuid ON tracks(soundcharts_uuid);
 CREATE INDEX IF NOT EXISTS idx_tracks_created_at ON tracks(created_at DESC);
 `;

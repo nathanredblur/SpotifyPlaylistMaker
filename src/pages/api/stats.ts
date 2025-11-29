@@ -137,10 +137,10 @@ export const GET: APIRoute = async () => {
       )
       .get() as { size: number };
 
-    // Most recent tracks
+    // Most recent tracks (no added_at in tracks table anymore)
     const recentTracks = db
       .prepare(
-        "SELECT spotify_id, name, added_at, isrc, soundcharts_data IS NOT NULL as has_soundcharts FROM tracks ORDER BY created_at DESC LIMIT 5"
+        "SELECT spotify_id, name, isrc, soundcharts_data IS NOT NULL as has_soundcharts FROM tracks ORDER BY created_at DESC LIMIT 5"
       )
       .all() as any[];
 

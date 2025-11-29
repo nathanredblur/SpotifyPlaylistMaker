@@ -8,12 +8,12 @@ import type { Database } from "better-sqlite3";
 
 /**
  * Track data structure (matches database schema)
+ * Note: added_at is now in user_tracks table, not here
  */
 export interface TrackRecord {
   spotify_id: string;
   soundcharts_uuid?: string | null;
   spotify_data: string; // JSON string
-  added_at?: string | null;
   soundcharts_data?: string | null;
   soundcharts_fetched_at?: string | null;
   name: string;
@@ -41,11 +41,11 @@ export interface TrackRecord {
 
 /**
  * Input data for creating a new track
+ * Note: added_at is now in user_tracks table, not tracks
  */
 export interface CreateTrackInput {
   spotify_id: string;
   spotify_data: string;
-  added_at?: string;
   name: string;
   duration_ms?: number;
   explicit?: boolean;
@@ -149,15 +149,14 @@ export class TracksRepository {
   create(input: CreateTrackInput): void {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO tracks (
-        spotify_id, spotify_data, added_at, name, 
+        spotify_id, spotify_data, name, 
         duration_ms, explicit, popularity, preview_url, artists_json, isrc
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       input.spotify_id,
       input.spotify_data,
-      input.added_at || null,
       input.name,
       input.duration_ms || null,
       input.explicit ? 1 : 0,
@@ -175,9 +174,9 @@ export class TracksRepository {
   createMany(inputs: CreateTrackInput[]): void {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO tracks (
-        spotify_id, spotify_data, added_at, name, 
+        spotify_id, spotify_data, name, 
         duration_ms, explicit, popularity, preview_url, artists_json, isrc
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertMany = this.db.transaction((tracks: CreateTrackInput[]) => {
@@ -185,7 +184,6 @@ export class TracksRepository {
         stmt.run(
           track.spotify_id,
           track.spotify_data,
-          track.added_at || null,
           track.name,
           track.duration_ms || null,
           track.explicit ? 1 : 0,
@@ -302,11 +300,12 @@ export class TracksRepository {
   }
 
   /**
-   * Get the most recently added track (by added_at)
+   * Get the most recently created track (by created_at)
+   * Note: added_at is now in user_tracks table
    */
-  getMostRecentlyAdded(): TrackRecord | null {
+  getMostRecentlyCreated(): TrackRecord | null {
     const result = this.db
-      .prepare("SELECT * FROM tracks ORDER BY added_at DESC LIMIT 1")
+      .prepare("SELECT * FROM tracks ORDER BY created_at DESC LIMIT 1")
       .get() as TrackRecord | undefined;
     return result || null;
   }

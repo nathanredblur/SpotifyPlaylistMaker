@@ -57,7 +57,6 @@ export const GET: APIRoute = async ({ url }) => {
         explicit: track.explicit === 1,
         popularity: track.popularity || 0,
         preview_url: track.preview_url || null,
-        added_at: track.added_at || null,
         artists: artistsJson,
         album: spotifyData.album || {},
         // Audio features from SoundCharts (if available)

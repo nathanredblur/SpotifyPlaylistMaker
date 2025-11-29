@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { SpotifyAPI } from "@/lib/spotify-api";
-import { useMusicLoaderV2 as useMusicLoader } from "@/hooks/useMusicLoaderV2";
+import { useMusicLoaderV3 as useMusicLoader } from "@/hooks/useMusicLoaderV3";
 import type { CollectionInfo } from "@/types/spotify";
 import { LoadingScreen } from "./LoadingScreen";
 import { MainApp } from "./MainApp";

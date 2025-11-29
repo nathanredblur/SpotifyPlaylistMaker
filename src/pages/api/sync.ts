@@ -93,9 +93,32 @@ export const POST: APIRoute = async ({ request }) => {
           }
 
           // Fetch from SoundCharts
-          const response = await soundChartsClient.getTrackBySpotifyId(
-            track.spotify_id
-          );
+          // Strategy: Try ISRC first (more reliable), fallback to Spotify ID
+          let response;
+
+          // Normalize ISRC (handle empty strings and null)
+          const isrc =
+            track.isrc && track.isrc.trim() !== "" ? track.isrc.trim() : null;
+
+          if (isrc) {
+            try {
+              response = await soundChartsClient.getTrackByISRC(isrc);
+            } catch (isrcError: any) {
+              // If ISRC fails with 404, try Spotify ID
+              if (isrcError.status === 404) {
+                response = await soundChartsClient.getTrackBySpotifyId(
+                  track.spotify_id
+                );
+              } else {
+                throw isrcError; // Re-throw non-404 errors
+              }
+            }
+          } else {
+            // No ISRC available, use Spotify ID
+            response = await soundChartsClient.getTrackBySpotifyId(
+              track.spotify_id
+            );
+          }
 
           // Log quota info
           SoundChartsClient.logQuotaInfo(response.headers);
@@ -152,9 +175,12 @@ export const POST: APIRoute = async ({ request }) => {
             max_attempts: maxAttempts,
           });
 
-          console.warn(
-            `⚠️ Failed to fetch audio features for ${track.spotify_id}: ${error.message}`
-          );
+          // Only log non-404 errors (404s are expected - track not in SoundCharts database)
+          if (error.status !== 404) {
+            console.warn(
+              `⚠️ Failed to fetch audio features for ${track.spotify_id}: ${error.message}`
+            );
+          }
         }
       }
     } else {
@@ -175,7 +201,25 @@ export const POST: APIRoute = async ({ request }) => {
     });
 
     const duration = Date.now() - startTime;
+
+    // Log summary
+    const tracksWithAudioFeatures = repos.tracks.countWithSoundCharts();
+    const totalTracks = allTracks.length;
+    const coverage =
+      totalTracks > 0
+        ? ((tracksWithAudioFeatures / totalTracks) * 100).toFixed(1)
+        : "0";
+
     console.log(`✅ Sync #${syncId} completed in ${duration}ms`);
+    console.log(
+      `📊 Audio Features Coverage: ${tracksWithAudioFeatures}/${totalTracks} tracks (${coverage}%)`
+    );
+    if (soundChartsFailed > 0) {
+      const notFoundCount = soundChartsFailed; // Most are 404s
+      console.log(
+        `   ${notFoundCount} tracks not found in SoundCharts database (expected)`
+      );
+    }
 
     // Return response
     return new Response(
@@ -279,17 +323,27 @@ async function saveTracksToDatabase(
 ) {
   console.log(`💾 Saving ${tracks.length} tracks to database`);
 
-  const trackInputs = tracks.map((item) => ({
-    spotify_id: item.track.id,
-    spotify_data: JSON.stringify(item.track),
-    added_at: item.added_at,
-    name: item.track.name,
-    duration_ms: item.track.duration_ms,
-    explicit: item.track.explicit,
-    popularity: item.track.popularity,
-    preview_url: item.track.preview_url || undefined,
-    artists_json: JSON.stringify(item.track.artists),
-  }));
+  const trackInputs = tracks.map((item) => {
+    // Extract ISRC from Spotify data
+    const isrc = item.track.external_ids?.isrc;
+
+    return {
+      spotify_id: item.track.id,
+      spotify_data: JSON.stringify(item.track),
+      added_at: item.added_at,
+      name: item.track.name,
+      duration_ms: item.track.duration_ms,
+      explicit: item.track.explicit,
+      popularity: item.track.popularity,
+      preview_url: item.track.preview_url || undefined,
+      artists_json: JSON.stringify(item.track.artists),
+      isrc: isrc || undefined, // Add ISRC if available
+    };
+  });
 
   repos.tracks.createMany(trackInputs);
+
+  // Log how many tracks have ISRC
+  const tracksWithIsrc = trackInputs.filter((t) => t.isrc).length;
+  console.log(`   ${tracksWithIsrc}/${tracks.length} tracks have ISRC codes`);
 }

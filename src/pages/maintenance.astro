@@ -1,0 +1,214 @@
+---
+import AppLayout from "@/layouts/AppLayout.astro";
+---
+
+<AppLayout title="Database Maintenance - Spotify Playlist Maker">
+  <div
+    class="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 p-8"
+  >
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <h1 class="text-4xl font-bold text-white">Database Maintenance</h1>
+        <a href="/admin" class="text-blue-400 hover:text-blue-300">
+          ← Back to Dashboard
+        </a>
+      </div>
+
+      <div class="space-y-6">
+        <!-- ISRC Migration -->
+        <div
+          class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6"
+        >
+          <h2 class="text-2xl font-bold text-white mb-4">1. Migrate ISRCs</h2>
+          <p class="text-slate-300 mb-4">
+            Extract ISRC codes from spotify_data JSON and populate the isrc
+            column. This improves SoundCharts lookup success rate.
+          </p>
+          <button
+            id="migrate-btn"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Run ISRC Migration
+          </button>
+          <div id="migrate-result" class="mt-4 text-sm"></div>
+        </div>
+
+        <!-- Clear Failed Requests -->
+        <div
+          class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6"
+        >
+          <h2 class="text-2xl font-bold text-white mb-4">
+            2. Clear Failed Requests
+          </h2>
+          <p class="text-slate-300 mb-4">
+            Remove all failed request records to allow retry with the new ISRC
+            strategy.
+          </p>
+          <button
+            id="clear-btn"
+            class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-6 py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Clear Failed Requests
+          </button>
+          <div id="clear-result" class="mt-4 text-sm"></div>
+        </div>
+
+        <!-- Trigger Sync -->
+        <div
+          class="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6"
+        >
+          <h2 class="text-2xl font-bold text-white mb-4">
+            3. Trigger Manual Sync
+          </h2>
+          <p class="text-slate-300 mb-4">
+            Manually trigger a sync to fetch new tracks from Spotify and update
+            SoundCharts data.
+          </p>
+          <button
+            id="sync-btn"
+            class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Start Sync
+          </button>
+          <div id="sync-result" class="mt-4 text-sm"></div>
+        </div>
+      </div>
+
+      <div class="mt-8 text-center">
+        <a href="/" class="text-blue-400 hover:text-blue-300 text-lg">
+          ← Back to App
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Migrate ISRCs
+    document
+      .getElementById("migrate-btn")
+      ?.addEventListener("click", async () => {
+        const btn = document.getElementById("migrate-btn") as HTMLButtonElement;
+        const result = document.getElementById("migrate-result");
+        if (!result) return;
+
+        btn.disabled = true;
+        btn.textContent = "Migrating...";
+        result.innerHTML = '<p class="text-yellow-400">⏳ Processing...</p>';
+
+        try {
+          const response = await fetch("/api/migrate-isrc", {
+            method: "POST",
+          });
+          const data = await response.json();
+
+          if (data.success) {
+            result.innerHTML = `
+              <div class="text-green-400">
+                <p class="font-bold">✅ Migration Complete!</p>
+                <ul class="list-disc list-inside mt-2">
+                  <li>Total tracks: ${data.totalTracks}</li>
+                  <li>Updated: ${data.updatedCount}</li>
+                  <li>Already had ISRC: ${data.alreadyHadIsrcCount}</li>
+                  <li>No ISRC in data: ${data.noIsrcInSpotifyData}</li>
+                </ul>
+              </div>
+            `;
+          } else {
+            result.innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
+          }
+        } catch (error) {
+          result.innerHTML = `<p class="text-red-400">❌ Error: ${error}</p>`;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Run ISRC Migration";
+        }
+      });
+
+    // Clear Failed Requests
+    document
+      .getElementById("clear-btn")
+      ?.addEventListener("click", async () => {
+        const btn = document.getElementById("clear-btn") as HTMLButtonElement;
+        const result = document.getElementById("clear-result");
+        if (!result) return;
+
+        if (!confirm("Are you sure you want to clear all failed requests?")) {
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Clearing...";
+        result.innerHTML = '<p class="text-yellow-400">⏳ Processing...</p>';
+
+        try {
+          const response = await fetch("/api/clear-failed", {
+            method: "POST",
+          });
+          const data = await response.json();
+
+          if (data.success) {
+            result.innerHTML = `
+              <div class="text-green-400">
+                <p class="font-bold">✅ ${data.message}</p>
+                <p class="mt-2">Cleared ${data.clearedCount} records</p>
+              </div>
+            `;
+          } else {
+            result.innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
+          }
+        } catch (error) {
+          result.innerHTML = `<p class="text-red-400">❌ Error: ${error}</p>`;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Clear Failed Requests";
+        }
+      });
+
+    // Trigger Manual Sync
+    document.getElementById("sync-btn")?.addEventListener("click", async () => {
+      const btn = document.getElementById("sync-btn") as HTMLButtonElement;
+      const result = document.getElementById("sync-result");
+      if (!result) return;
+
+      btn.disabled = true;
+      btn.textContent = "Syncing...";
+      result.innerHTML =
+        '<p class="text-yellow-400">⏳ Syncing with Spotify and SoundCharts...</p>';
+
+      try {
+        const response = await fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            collectionType: "saved",
+            playlistUri: null,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          result.innerHTML = `
+              <div class="text-green-400">
+                <p class="font-bold">✅ Sync Complete!</p>
+                <ul class="list-disc list-inside mt-2">
+                  <li>Total tracks: ${data.stats.total}</li>
+                  <li>New from Spotify: ${data.stats.newFromSpotify}</li>
+                  <li>Fetched from SoundCharts: ${data.stats.fetchedFromSoundCharts}</li>
+                  <li>Failed: ${data.stats.failed}</li>
+                  <li>Duration: ${(data.stats.duration / 1000).toFixed(1)}s</li>
+                </ul>
+              </div>
+            `;
+        } else {
+          result.innerHTML = `<p class="text-red-400">❌ ${data.error}</p>`;
+        }
+      } catch (error) {
+        result.innerHTML = `<p class="text-red-400">❌ Error: ${error}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Start Sync";
+      }
+    });
+  </script>
+</AppLayout>

@@ -5,7 +5,7 @@
 
 import type { SoundChartsTrackResponse, SoundChartsError } from "./types";
 
-const BASE_URL = "https://customer.api.soundcharts.com/api/v2";
+const BASE_URL = "https://customer.api.soundcharts.com/api/v2.25";
 
 export class SoundChartsAPIError extends Error {
   constructor(message: string, public status: number, public response?: any) {
@@ -107,7 +107,7 @@ export class SoundChartsClient {
     spotifyId: string
   ): Promise<SoundChartsResponse<SoundChartsTrackResponse>> {
     return this.request<SoundChartsTrackResponse>(
-      `/track/by-platform/spotify/${spotifyId}`
+      `/song/by-platform/spotify/${spotifyId}`
     );
   }
 
@@ -119,7 +119,7 @@ export class SoundChartsClient {
   async getTrackByISRC(
     isrc: string
   ): Promise<SoundChartsResponse<SoundChartsTrackResponse>> {
-    return this.request<SoundChartsTrackResponse>(`/track/by-isrc/${isrc}`);
+    return this.request<SoundChartsTrackResponse>(`/song/by-isrc/${isrc}`);
   }
 
   /**
@@ -130,7 +130,7 @@ export class SoundChartsClient {
   async getTrackByUUID(
     uuid: string
   ): Promise<SoundChartsResponse<SoundChartsTrackResponse>> {
-    return this.request<SoundChartsTrackResponse>(`/track/${uuid}`);
+    return this.request<SoundChartsTrackResponse>(`/song/${uuid}`);
   }
 
   /**
@@ -152,10 +152,11 @@ export class SoundChartsClient {
 
 /**
  * Create a SoundCharts client from environment variables
+ * Note: These are server-side only variables (not prefixed with PUBLIC_)
  */
 export function createSoundChartsClient(): SoundChartsClient {
-  const appId = process.env.SOUNDCHARTS_APP_ID;
-  const token = process.env.SOUNDCHARTS_API_TOKEN;
+  const appId = import.meta.env.SOUNDCHARTS_APP_ID;
+  const token = import.meta.env.SOUNDCHARTS_API_TOKEN;
 
   if (!appId || !token) {
     throw new Error(

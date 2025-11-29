@@ -52,6 +52,7 @@ export interface CreateTrackInput {
   popularity?: number;
   preview_url?: string;
   artists_json?: string;
+  isrc?: string; // ISRC code from Spotify
 }
 
 /**
@@ -149,8 +150,8 @@ export class TracksRepository {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO tracks (
         spotify_id, spotify_data, added_at, name, 
-        duration_ms, explicit, popularity, preview_url, artists_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        duration_ms, explicit, popularity, preview_url, artists_json, isrc
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -162,7 +163,8 @@ export class TracksRepository {
       input.explicit ? 1 : 0,
       input.popularity || null,
       input.preview_url || null,
-      input.artists_json || null
+      input.artists_json || null,
+      input.isrc || null
     );
   }
 
@@ -174,8 +176,8 @@ export class TracksRepository {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO tracks (
         spotify_id, spotify_data, added_at, name, 
-        duration_ms, explicit, popularity, preview_url, artists_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        duration_ms, explicit, popularity, preview_url, artists_json, isrc
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertMany = this.db.transaction((tracks: CreateTrackInput[]) => {
@@ -189,7 +191,8 @@ export class TracksRepository {
           track.explicit ? 1 : 0,
           track.popularity || null,
           track.preview_url || null,
-          track.artists_json || null
+          track.artists_json || null,
+          track.isrc || null
         );
       }
     });
@@ -259,6 +262,17 @@ export class TracksRepository {
   }
 
   /**
+   * Update track's ISRC code
+   */
+  updateIsrc(spotifyId: string, isrc: string): void {
+    this.db
+      .prepare(
+        "UPDATE tracks SET isrc = ?, updated_at = CURRENT_TIMESTAMP WHERE spotify_id = ?"
+      )
+      .run(isrc, spotifyId);
+  }
+
+  /**
    * Delete a track
    */
   delete(spotifyId: string): void {
@@ -280,7 +294,9 @@ export class TracksRepository {
    */
   countWithSoundCharts(): number {
     const result = this.db
-      .prepare("SELECT COUNT(*) as count FROM tracks WHERE soundcharts_data IS NOT NULL")
+      .prepare(
+        "SELECT COUNT(*) as count FROM tracks WHERE soundcharts_data IS NOT NULL"
+      )
       .get() as { count: number };
     return result.count;
   }
@@ -295,4 +311,3 @@ export class TracksRepository {
     return result || null;
   }
 }
-

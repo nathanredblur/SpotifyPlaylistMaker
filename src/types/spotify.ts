@@ -31,6 +31,11 @@ export interface SpotifyTrackDetails {
   popularity: number;
   artists: SpotifyArtist[];
   album: SpotifyAlbum;
+  external_ids?: {
+    isrc?: string;
+    ean?: string;
+    upc?: string;
+  };
 }
 
 export interface AudioFeatures {

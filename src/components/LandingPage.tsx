@@ -1,68 +1,12 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { authorizeSpotify } from '@/lib/spotify-auth';
-import type { CollectionType } from '@/types/spotify';
 
 export function LandingPage() {
-  const [collectionType, setCollectionType] = useState<CollectionType>('saved');
-  const [playlistUri, setPlaylistUri] = useState('');
-  const [error, setError] = useState('');
-
   const handleStart = () => {
-    setError('');
-
-    if (collectionType === 'playlist') {
-      if (!playlistUri.trim()) {
-        setError("Please enter a playlist URI");
-        return;
-      }
-      
-      const normalizedUri = normalizeUri(playlistUri);
-      if (!isValidPlaylistUri(normalizedUri)) {
-        setError("That's not a valid playlist URI");
-        return;
-      }
-
-      // Save playlist URI to localStorage
-      localStorage.setItem('collection_info', JSON.stringify({
-        type: collectionType,
-        uri: normalizedUri,
-      }));
-    } else {
-      localStorage.setItem('collection_info', JSON.stringify({
-        type: collectionType,
-      }));
-    }
-
-    // Redirect to Spotify authorization
+    // Simply redirect to Spotify authorization
+    // Collection selection happens after login
     authorizeSpotify();
-  };
-
-  const normalizeUri = (uri: string): string => {
-    return uri
-      .replace('https://open.spotify.com', 'spotify')
-      .replace('https://play.spotify.com', 'spotify')
-      .replace(/\//g, ':');
-  };
-
-  const isValidPlaylistUri = (uri: string): boolean => {
-    const fields = uri.split(':');
-    if (fields.length === 3) {
-      return fields[0] === 'spotify' && fields[1] === 'playlist';
-    } else if (fields.length === 5) {
-      return fields[0] === 'spotify' && fields[3] === 'playlist';
-    }
-    return false;
   };
 
   return (
@@ -89,52 +33,14 @@ export function LandingPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <Label htmlFor="collection-type" className="text-lg text-slate-200">
-                  What do you want to organize:
-                </Label>
-                <Select value={collectionType} onValueChange={(value) => setCollectionType(value as CollectionType)}>
-                  <SelectTrigger id="collection-type" className="bg-white/10 border-white/20 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="saved">Songs you've saved to Your Music</SelectItem>
-                    <SelectItem value="added">Songs you've added to a playlist</SelectItem>
-                    <SelectItem value="follow">Songs in playlists you follow</SelectItem>
-                    <SelectItem value="all">All of your music</SelectItem>
-                    <SelectItem value="playlist">A specific playlist</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {collectionType === 'playlist' && (
-                  <div className="space-y-2 pt-4">
-                    <Label htmlFor="uri-text" className="text-slate-200">
-                      Enter the URI for your playlist:
-                    </Label>
-                    <Input
-                      id="uri-text"
-                      type="text"
-                      placeholder="spotify:user:spotify:playlist:5FJXhjdILmRA2z5bvz4nzf"
-                      value={playlistUri}
-                      onChange={(e) => setPlaylistUri(e.target.value)}
-                      className="bg-white/10 border-white/20 text-white placeholder:text-slate-400"
-                    />
-                  </div>
-                )}
-
-                {error && (
-                  <p className="text-red-400 text-sm text-center">{error}</p>
-                )}
-
-                <div className="flex justify-center pt-4">
-                  <Button
-                    onClick={handleStart}
-                    size="lg"
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-12 py-6 text-lg"
-                  >
-                    Organize your music
-                  </Button>
-                </div>
+              <div className="flex justify-center pt-4">
+                <Button
+                  onClick={handleStart}
+                  size="lg"
+                  className="bg-green-600 hover:bg-green-700 text-white font-semibold px-12 py-6 text-lg"
+                >
+                  Organize your music
+                </Button>
               </div>
             </CardContent>
           </Card>

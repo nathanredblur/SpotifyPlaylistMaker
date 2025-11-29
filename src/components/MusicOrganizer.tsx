@@ -1,19 +1,24 @@
 import { useState, useEffect } from "react";
 import { SpotifyAPI } from "@/lib/spotify-api";
-import { useMusicLoader } from "@/hooks/useMusicLoader";
+import { useMusicLoaderV2 as useMusicLoader } from "@/hooks/useMusicLoaderV2";
 import type { CollectionInfo } from "@/types/spotify";
 import { LoadingScreen } from "./LoadingScreen";
 import { MainApp } from "./MainApp";
 
 interface MusicOrganizerProps {
   accessToken: string;
+  collectionInfo: CollectionInfo;
+  onChangeCollection: () => void;
+  onLogout: () => void;
 }
 
-export function MusicOrganizer({ accessToken }: MusicOrganizerProps) {
+export function MusicOrganizer({
+  accessToken,
+  collectionInfo,
+  onChangeCollection,
+  onLogout,
+}: MusicOrganizerProps) {
   const [userId, setUserId] = useState<string | null>(null);
-  const [collectionInfo, setCollectionInfo] = useState<CollectionInfo | null>(
-    null
-  );
   const [initError, setInitError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -21,7 +26,7 @@ export function MusicOrganizer({ accessToken }: MusicOrganizerProps) {
 
   useEffect(() => {
     initializeApp();
-  }, []);
+  }, [collectionInfo]);
 
   const initializeApp = async () => {
     try {
@@ -31,21 +36,10 @@ export function MusicOrganizer({ accessToken }: MusicOrganizerProps) {
       const user = await api.getCurrentUser();
       setUserId(user.id);
 
-      // Get collection info from localStorage
-      const storedInfo = localStorage.getItem("collection_info");
-      if (!storedInfo) {
-        throw new Error(
-          "No collection information found. Please go back and select what to organize."
-        );
-      }
-
-      const info: CollectionInfo = JSON.parse(storedInfo);
-      setCollectionInfo(info);
-
       setIsInitializing(false);
 
       // Start loading music
-      await musicLoader.loadMusic(api, info, user.id);
+      await musicLoader.loadMusic(collectionInfo);
     } catch (err) {
       console.error("Error initializing app:", err);
       setInitError(
@@ -58,7 +52,7 @@ export function MusicOrganizer({ accessToken }: MusicOrganizerProps) {
   // Show initialization error
   if (initError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center p-4">
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-6 max-w-md">
           <h2 className="text-xl font-bold text-red-400 mb-2">Error</h2>
           <p className="text-slate-300">{initError}</p>
@@ -76,7 +70,7 @@ export function MusicOrganizer({ accessToken }: MusicOrganizerProps) {
   // Show music loading error
   if (musicLoader.error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center p-4">
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-6 max-w-md">
           <h2 className="text-xl font-bold text-red-400 mb-2">Loading Error</h2>
           <p className="text-slate-300">{musicLoader.error}</p>
@@ -104,14 +98,10 @@ export function MusicOrganizer({ accessToken }: MusicOrganizerProps) {
 
   // Show loading screen
   if (isInitializing || musicLoader.isLoading) {
-    const message = isInitializing
-      ? "Initializing..."
-      : `Loading ${musicLoader.stats.currentPlaylist}...`;
-
     return (
       <LoadingScreen
         progress={musicLoader.progress}
-        message={message}
+        message={musicLoader.message}
         collectionType={collectionInfo?.type || "saved"}
         onStop={musicLoader.stopLoading}
         stats={musicLoader.stats}
@@ -124,9 +114,11 @@ export function MusicOrganizer({ accessToken }: MusicOrganizerProps) {
     <MainApp
       accessToken={accessToken}
       userId={userId!}
-      collectionInfo={collectionInfo!}
+      collectionInfo={collectionInfo}
       bins={musicLoader.bins}
       tracks={musicLoader.tracks}
+      onChangeCollection={onChangeCollection}
+      onLogout={onLogout}
     />
   );
 }

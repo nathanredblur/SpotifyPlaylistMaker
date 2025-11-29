@@ -4,9 +4,11 @@ import { getAuthorizationUrl } from "@/config/spotify";
  * Redirects the user to Spotify's authorization page
  * @throws {ConfigurationError} If Spotify configuration is invalid
  */
-export function authorizeSpotify(): void {
+export async function authorizeSpotify(): Promise<void> {
   try {
-    const authUrl = getAuthorizationUrl();
+    const authUrl = await getAuthorizationUrl();
+    console.log("🔐 Redirecting to Spotify authorization:");
+    console.log("   URL:", authUrl);
     window.location.href = authUrl;
   } catch (error) {
     // Log the error and show user-friendly message

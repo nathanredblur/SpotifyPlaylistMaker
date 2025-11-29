@@ -350,20 +350,49 @@ export class SpotifyAPI {
   }
 }
 
-// Helper to parse URL hash for access token
-export function parseAuthHash(): { accessToken?: string; error?: string } {
+/**
+ * Parse authorization callback from URL
+ * The backend handles the code exchange and returns the token in the hash
+ */
+export function parseAuthCallback(): {
+  accessToken?: string;
+  expiresIn?: number;
+  error?: string;
+} {
   if (typeof window === "undefined") return {};
 
+  // Check for error in query parameters
+  const searchParams = new URLSearchParams(window.location.search);
+  const queryError = searchParams.get("error");
+
+  if (queryError) {
+    return { error: queryError };
+  }
+
+  // Check for access_token in hash (returned by our backend)
   const hash = window.location.hash.replace("#", "");
-  const params = new URLSearchParams(hash);
+  const hashParams = new URLSearchParams(hash);
+  const accessToken = hashParams.get("access_token");
+  const expiresIn = hashParams.get("expires_in");
+  const hashError = hashParams.get("error");
 
   return {
-    accessToken: params.get("access_token") || undefined,
-    error: params.get("error") || undefined,
+    accessToken: accessToken || undefined,
+    expiresIn: expiresIn ? parseInt(expiresIn, 10) : undefined,
+    error: hashError || undefined,
   };
 }
 
-// Helper to clear hash from URL
+// Helper to parse URL hash for access token (kept for compatibility)
+export function parseAuthHash(): { accessToken?: string; error?: string } {
+  const result = parseAuthCallback();
+  return {
+    accessToken: result.accessToken,
+    error: result.error,
+  };
+}
+
+// Helper to clear callback params from URL
 export function clearAuthHash(): void {
   if (typeof window !== "undefined") {
     window.history.replaceState(null, "", window.location.pathname);

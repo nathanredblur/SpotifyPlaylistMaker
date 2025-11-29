@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { CollectionType } from "@/types/spotify";
-import type { LoadingStats } from "@/hooks/useMusicLoader";
+import type { LoadingStats } from "@/hooks/useMusicLoaderV2";
 
 interface LoadingScreenProps {
   progress: number;

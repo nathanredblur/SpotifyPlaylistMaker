@@ -118,16 +118,64 @@ export function getRedirectUri(): string {
 }
 
 /**
- * Get the full authorization URL for Spotify OAuth
+ * Generate a random string for PKCE code verifier
+ */
+function generateCodeVerifier(length: number): string {
+  const possible =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+  const values = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(values)
+    .map((x) => possible[x % possible.length])
+    .join("");
+}
+
+/**
+ * Generate code challenge from verifier for PKCE
+ */
+async function generateCodeChallenge(verifier: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return btoa(String.fromCharCode(...new Uint8Array(hash)))
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+}
+
+/**
+ * Get the redirect URI for OAuth callback
+ * This points to our backend endpoint that handles the token exchange
+ */
+export function getCallbackUri(): string {
+  if (typeof window === "undefined") {
+    // Server-side: use environment variable or default
+    return (
+      import.meta.env.PUBLIC_SPOTIFY_REDIRECT_URI_LOCAL ||
+      "http://localhost:4321/api/auth/callback"
+    );
+  }
+
+  // Client-side: build from current origin
+  return `${window.location.origin}/api/auth/callback`;
+}
+
+/**
+ * Get the full authorization URL for Spotify OAuth with PKCE
  * @returns The complete Spotify authorization URL with all required parameters
  */
-export function getAuthorizationUrl(): string {
+export async function getAuthorizationUrl(): Promise<string> {
+  // Generate PKCE code verifier and challenge
+  const codeVerifier = generateCodeVerifier(64);
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+
   const params = new URLSearchParams({
     client_id: SPOTIFY_CONFIG.clientId,
-    response_type: "token",
-    redirect_uri: getRedirectUri(),
+    response_type: "code",
+    redirect_uri: getCallbackUri(),
     scope: SPOTIFY_CONFIG.scopes.join(" "),
-    show_dialog: "false",
+    code_challenge_method: "S256",
+    code_challenge: codeChallenge,
+    state: codeVerifier, // Pass verifier through state for backend to use
   });
 
   return `https://accounts.spotify.com/authorize?${params.toString()}`;

@@ -1,6 +1,6 @@
 ---
 import AppLayout from "@/layouts/AppLayout.astro";
-import { LandingPage } from "@/components/LandingPage";
+import { UnifiedApp } from "@/components/UnifiedApp";
 import { ConfigError } from "@/components/ConfigError";
 
 // Try to load configuration and catch any errors
@@ -19,7 +19,7 @@ try {
     configError ? (
       <ConfigError error={configError} client:only="react" />
     ) : (
-      <LandingPage client:load />
+      <UnifiedApp client:only="react" />
     )
   }
 </AppLayout>

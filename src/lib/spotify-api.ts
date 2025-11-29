@@ -18,8 +18,10 @@ import {
   FailedRequestsCache,
 } from "./indexeddb-cache";
 
+import { SPOTIFY_API } from "@/config/constants";
+
 const BASE_URL = "https://api.spotify.com/v1";
-const MAX_RETRIES = 10;
+const MAX_RETRIES = SPOTIFY_API.MAX_RETRIES;
 
 interface SpotifyRequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -105,9 +107,9 @@ export class SpotifyAPI {
             console.log(
               `Rate limited. Retry ${retries}/${MAX_RETRIES} after ${delay}ms`
             );
-            await new Promise((resolve) =>
-              setTimeout(resolve, delay + retries * delay)
-            );
+                    await new Promise((resolve) =>
+                      setTimeout(resolve, delay + retries * SPOTIFY_API.RETRY_DELAY)
+                    );
             return makeRequest();
           }
           throw new SpotifyAPIError("Rate limit exceeded", 429);
@@ -118,7 +120,7 @@ export class SpotifyAPI {
           if (retries < MAX_RETRIES) {
             retries++;
             console.log(`Server error. Retry ${retries}/${MAX_RETRIES}`);
-            await new Promise((resolve) => setTimeout(resolve, 500));
+                    await new Promise((resolve) => setTimeout(resolve, SPOTIFY_API.RETRY_DELAY));
             return makeRequest();
           }
           throw new SpotifyAPIError("Server error", response.status);

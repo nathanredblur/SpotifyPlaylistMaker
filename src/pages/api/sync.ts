@@ -8,6 +8,11 @@ import { SpotifyAPI } from "@/lib/spotify-api";
 import { getRepositories, initDatabase } from "@/lib/db";
 import { createSoundChartsClient, SoundChartsClient } from "@/lib/soundcharts";
 import type { SavedTrackItem } from "@/types/spotify";
+import {
+  SOUNDCHARTS_API,
+  FAILED_REQUESTS,
+  HTTP_STATUS,
+} from "@/config/constants";
 
 export const POST: APIRoute = async ({ request }) => {
   const startTime = Date.now();
@@ -75,8 +80,9 @@ export const POST: APIRoute = async ({ request }) => {
     let soundChartsFailed = 0;
 
     if (soundChartsClient) {
-      const tracksWithoutSoundCharts =
-        repos.tracks.getTracksWithoutSoundCharts(100);
+      const tracksWithoutSoundCharts = repos.tracks.getTracksWithoutSoundCharts(
+        SOUNDCHARTS_API.MAX_TRACKS_PER_SYNC
+      );
 
       console.log(
         `🎵 Fetching audio features for ${tracksWithoutSoundCharts.length} tracks`
@@ -151,21 +157,24 @@ export const POST: APIRoute = async ({ request }) => {
           soundChartsFailed++;
 
           // Handle quota exceeded (402) - stop trying
-          if (error.status === 402) {
+          if (error.status === HTTP_STATUS.PAYMENT_REQUIRED) {
             console.error("❌ SoundCharts quota exceeded!");
             console.error("   Please update your API credentials in .env file");
             break; // Stop fetching
           }
 
           // Handle rate limit (429) - stop trying
-          if (error.status === 429) {
+          if (error.status === HTTP_STATUS.TOO_MANY_REQUESTS) {
             console.error("❌ SoundCharts rate limit exceeded!");
             console.error("   Please wait before making more requests");
             break; // Stop fetching
           }
 
           // Record the failure
-          const maxAttempts = error.status === 404 ? 1 : 3; // Don't retry 404s
+          const maxAttempts =
+            error.status === HTTP_STATUS.NOT_FOUND
+              ? FAILED_REQUESTS.MAX_ATTEMPTS_NOT_FOUND
+              : FAILED_REQUESTS.MAX_ATTEMPTS;
 
           repos.failedRequests.create({
             spotify_id: track.spotify_id,

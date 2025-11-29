@@ -1,4 +1,5 @@
 import { getAuthorizationUrl } from "@/config/spotify";
+import { STORAGE_KEYS } from "@/config/constants";
 
 /**
  * Redirects the user to Spotify's authorization page
@@ -25,7 +26,7 @@ export async function authorizeSpotify(): Promise<void> {
   }
 }
 
-const STORAGE_KEY = "spotify_access_token" as const;
+const STORAGE_KEY = STORAGE_KEYS.ACCESS_TOKEN;
 
 interface StoredToken {
   token: string;

@@ -122,7 +122,7 @@ export class TracksRepository {
    */
   getAll(): TrackRecord[] {
     const results = this.db
-      .prepare("SELECT * FROM tracks ORDER BY added_at DESC")
+      .prepare("SELECT * FROM tracks ORDER BY created_at DESC")
       .all() as TrackRecord[];
     return results;
   }

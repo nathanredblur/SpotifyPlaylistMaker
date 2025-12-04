@@ -1,12 +1,15 @@
 /**
  * API Endpoint: /api/sync
- * Synchronizes user's Spotify tracks with local database and fetches audio features from SoundCharts
+ * Synchronizes admin's Spotify tracks with local database and fetches audio features from SoundCharts
+ *
+ * ADMIN ONLY: This endpoint requires admin authentication
  */
 
 import type { APIRoute } from "astro";
 import { SpotifyAPI } from "@/lib/spotify-api";
 import { getRepositories, initDatabase } from "@/lib/db";
 import { createSoundChartsClient, SoundChartsClient } from "@/lib/soundcharts";
+import { verifyAdmin, createAuthErrorResponse } from "@/lib/auth-helpers";
 import type { SavedTrackItem } from "@/types/spotify";
 import {
   SOUNDCHARTS_API,
@@ -18,7 +21,16 @@ export const POST: APIRoute = async ({ request }) => {
   const startTime = Date.now();
 
   try {
-    // Initialize database
+    // Verify admin authentication
+    const authResult = await verifyAdmin(request);
+    if (!authResult.success || !authResult.isAdmin) {
+      return createAuthErrorResponse(authResult);
+    }
+
+    const { user, spotifyUser } = authResult;
+    console.log(`🔐 Admin sync requested by: ${spotifyUser?.display_name || user?.spotify_user_id}`);
+
+    // Initialize database (already done by verifyAdmin, but safe to call again)
     initDatabase();
     const repos = getRepositories();
 
@@ -26,16 +38,8 @@ export const POST: APIRoute = async ({ request }) => {
     const body = await request.json();
     const { collectionType = "saved" } = body;
 
-    // Get Spotify access token from Authorization header
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const spotifyToken = authHeader.replace("Bearer ", "");
+    // Create SpotifyAPI with the verified token
+    const spotifyToken = request.headers.get("Authorization")!.replace("Bearer ", "");
     const spotifyAPI = new SpotifyAPI(spotifyToken);
 
     // Create SoundCharts client

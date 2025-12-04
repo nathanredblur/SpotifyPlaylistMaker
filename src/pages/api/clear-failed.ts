@@ -1,16 +1,32 @@
 /**
  * API Endpoint: /api/clear-failed
  * Clears all failed requests to allow retry with new ISRC strategy
+ *
+ * ADMIN ONLY: This endpoint requires admin authentication
  */
 
 import type { APIRoute } from "astro";
 import { getDatabase } from "@/lib/db/database";
+import { verifyAdmin, createAuthErrorResponse } from "@/lib/auth-helpers";
 
 // Force this endpoint to be dynamic (not prerendered)
 export const prerender = false;
 
-export const POST: APIRoute = async () => {
+export const POST: APIRoute = async ({ request }) => {
   try {
+    // Verify admin authentication
+    const authResult = await verifyAdmin(request);
+    if (!authResult.success || !authResult.isAdmin) {
+      return createAuthErrorResponse(authResult);
+    }
+
+    const { user, spotifyUser } = authResult;
+    console.log(
+      `🔐 Clear failed requests requested by admin: ${
+        spotifyUser?.display_name || user?.spotify_user_id
+      }`
+    );
+
     console.log("🧹 Clearing failed requests...");
     const db = getDatabase();
 

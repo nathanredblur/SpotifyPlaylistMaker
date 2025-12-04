@@ -1,16 +1,32 @@
 /**
  * API Endpoint: /api/migrate-isrc
  * Migrates ISRC codes from spotify_data JSON to isrc column
+ *
+ * ADMIN ONLY: This endpoint requires admin authentication
  */
 
 import type { APIRoute } from "astro";
 import { TracksRepository } from "@/lib/db/tracks-repository";
+import { verifyAdmin, createAuthErrorResponse } from "@/lib/auth-helpers";
 
 // Force this endpoint to be dynamic (not prerendered)
 export const prerender = false;
 
-export const POST: APIRoute = async () => {
+export const POST: APIRoute = async ({ request }) => {
   try {
+    // Verify admin authentication
+    const authResult = await verifyAdmin(request);
+    if (!authResult.success || !authResult.isAdmin) {
+      return createAuthErrorResponse(authResult);
+    }
+
+    const { user, spotifyUser } = authResult;
+    console.log(
+      `🔐 ISRC migration requested by admin: ${
+        spotifyUser?.display_name || user?.spotify_user_id
+      }`
+    );
+
     console.log("🔄 Starting ISRC migration...");
     const tracksRepo = new TracksRepository();
 

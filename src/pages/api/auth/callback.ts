@@ -2,10 +2,16 @@
  * API Endpoint: /api/auth/callback
  * Handles the OAuth callback and exchanges the authorization code for an access token
  *
+ * This endpoint also creates/updates the user record in the database.
+ * The first user to log in becomes the admin automatically.
+ *
  * IMPORTANT: This must be a dynamic route (not prerendered)
  */
 
 import type { APIRoute } from "astro";
+import { SpotifyAPI } from "@/lib/spotify-api";
+import { initDatabase, getRepositories } from "@/lib/db";
+import type { CreateUserInput } from "@/lib/db/users-repository";
 
 // Force this endpoint to be dynamic (not prerendered)
 export const prerender = false;
@@ -69,6 +75,49 @@ export const GET: APIRoute = async (context) => {
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
     const expiresIn = tokenData.expires_in || 3600;
+
+    // Create/update user record in database
+    try {
+      initDatabase();
+      const repos = getRepositories();
+      const spotifyAPI = new SpotifyAPI(accessToken);
+      const spotifyUser = await spotifyAPI.getCurrentUser();
+
+      // Check if user already exists
+      const existingUser = repos.users.getBySpotifyId(spotifyUser.id);
+
+      // Determine role: first user becomes admin
+      const role =
+        existingUser?.role || (repos.users.hasAdmin() ? "regular" : "admin");
+
+      const userInput: CreateUserInput = {
+        spotify_user_id: spotifyUser.id,
+        role: existingUser ? undefined : role, // Only set role for new users
+        display_name: spotifyUser.display_name,
+        email: spotifyUser.email,
+        profile_image_url: spotifyUser.images?.[0]?.url,
+        spotify_user_data: JSON.stringify(spotifyUser),
+      };
+
+      repos.users.upsert(userInput);
+
+      if (!existingUser && role === "admin") {
+        console.log(
+          `👑 First user promoted to admin: ${
+            spotifyUser.display_name || spotifyUser.id
+          }`
+        );
+      } else {
+        console.log(
+          `✅ User logged in: ${
+            spotifyUser.display_name || spotifyUser.id
+          } (${role})`
+        );
+      }
+    } catch (userError) {
+      // Log but don't fail the auth flow - user creation is secondary
+      console.error("Failed to create/update user record:", userError);
+    }
 
     // Redirect back to home with token in hash (for client-side storage)
     // We use hash instead of query params for security (not sent to server on subsequent requests)

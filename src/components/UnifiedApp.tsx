@@ -1,23 +1,26 @@
 /**
  * Unified App Component
- * Shows landing page if not authenticated, or main app if authenticated
+ * Shows public gallery - all users see the same gallery (admin's tracks)
+ *
+ * Flow:
+ * - Not authenticated: Show gallery with "Login" button
+ * - Authenticated (regular user): Show gallery with user menu
+ * - Authenticated (admin): Show gallery with user menu + "Admin" option
  */
 
 import { useState, useEffect } from "react";
-import { LandingPage } from "./LandingPage";
-import { MusicOrganizer } from "./MusicOrganizer";
-import { CollectionSelector } from "./CollectionSelector";
-import { getAccessToken, setAccessToken } from "@/lib/spotify-auth";
+import { GalleryViewer, type UserInfo } from "./GalleryViewer";
+import {
+  getAccessToken,
+  setAccessToken,
+  authorizeSpotify,
+} from "@/lib/spotify-auth";
 import { parseAuthCallback, clearAuthHash } from "@/lib/spotify-api";
-import type { CollectionInfo } from "@/types/spotify";
 
 export function UnifiedApp() {
   const [accessToken, setAccessTokenState] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [collectionInfo, setCollectionInfo] = useState<CollectionInfo | null>(
-    null
-  );
-  const [showCollectionSelector, setShowCollectionSelector] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,8 +49,9 @@ export function UnifiedApp() {
         setAccessToken(newToken, expiresIn);
         clearAuthHash(); // Clean up the URL
         setAccessTokenState(newToken);
+        // Fetch user info
+        await fetchUserInfo(newToken);
         setIsInitializing(false);
-        setShowCollectionSelector(true); // Show selector after login
         return;
       }
 
@@ -57,15 +61,8 @@ export function UnifiedApp() {
       if (validToken) {
         console.log("✅ Valid token found in storage");
         setAccessTokenState(validToken);
-
-        // Check if we have a stored collection selection
-        const storedInfo = localStorage.getItem("collection_info");
-        if (storedInfo) {
-          const info: CollectionInfo = JSON.parse(storedInfo);
-          setCollectionInfo(info);
-        } else {
-          setShowCollectionSelector(true);
-        }
+        // Fetch user info
+        await fetchUserInfo(validToken);
       }
 
       setIsInitializing(false);
@@ -78,24 +75,45 @@ export function UnifiedApp() {
     }
   };
 
-  const handleCollectionSelect = (info: CollectionInfo) => {
-    localStorage.setItem("collection_info", JSON.stringify(info));
-    setCollectionInfo(info);
-    setShowCollectionSelector(false);
-  };
+  const fetchUserInfo = async (token: string) => {
+    try {
+      const response = await fetch("/api/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  const handleChangeCollection = () => {
-    setShowCollectionSelector(true);
-    setCollectionInfo(null);
+      if (response.ok) {
+        const data = await response.json();
+        setUserInfo(data.user);
+        console.log(
+          `✅ User authenticated: ${data.user.displayName} (${data.user.role})`
+        );
+      } else {
+        // Token might be invalid, clear it
+        console.warn("Failed to fetch user info, clearing token");
+        handleLogout();
+      }
+    } catch (err) {
+      console.error("Error fetching user info:", err);
+    }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("spotify_access_token");
-    localStorage.removeItem("collection_info");
+    localStorage.removeItem("spotify_token_expires_at");
     setAccessTokenState(null);
-    setCollectionInfo(null);
-    setShowCollectionSelector(false);
-    window.location.href = "/";
+    setUserInfo(null);
+  };
+
+  const handleLogin = () => {
+    // Start Spotify OAuth flow
+    authorizeSpotify();
+  };
+
+  const handleGoToAdmin = () => {
+    // Navigate to admin page
+    window.location.href = "/admin";
   };
 
   // Show loading state
@@ -129,28 +147,14 @@ export function UnifiedApp() {
     );
   }
 
-  // Not authenticated - show landing page
-  if (!accessToken) {
-    return <LandingPage />;
-  }
-
-  // Authenticated but no collection selected - show selector
-  if (showCollectionSelector || !collectionInfo) {
-    return (
-      <CollectionSelector
-        onSelect={handleCollectionSelect}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
-  // Authenticated with collection selected - show main app
+  // Always show gallery - with or without authentication
   return (
-    <MusicOrganizer
+    <GalleryViewer
       accessToken={accessToken}
-      collectionInfo={collectionInfo}
-      onChangeCollection={handleChangeCollection}
+      userInfo={userInfo}
+      onLogin={handleLogin}
       onLogout={handleLogout}
+      onGoToAdmin={userInfo?.isAdmin ? handleGoToAdmin : undefined}
     />
   );
 }

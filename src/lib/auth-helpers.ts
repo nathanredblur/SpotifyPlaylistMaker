@@ -121,6 +121,13 @@ export async function verifyAuth(request: Request): Promise<AuthResult> {
           status: 401,
         };
       }
+      if (apiError.status === 403) {
+        return {
+          success: false,
+          error: "Spotify access forbidden - please re-authorize the app",
+          status: 403,
+        };
+      }
     }
 
     console.error("Auth verification failed:", error);

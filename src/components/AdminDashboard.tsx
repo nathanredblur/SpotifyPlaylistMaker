@@ -181,6 +181,8 @@ export function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState("overview");
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
 
   // Maintenance action states
   const [isRunningMigration, setIsRunningMigration] = useState(false);
@@ -190,6 +192,49 @@ export function AdminDashboard() {
     type: "success" | "error" | "info";
     text: string;
   } | null>(null);
+
+  // Check admin access on mount
+  useEffect(() => {
+    checkAdminAccess();
+  }, []);
+
+  const checkAdminAccess = async () => {
+    setAuthChecking(true);
+    try {
+      // Get token from localStorage
+      const tokenData = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+      if (!tokenData) {
+        setIsAdmin(false);
+        setAuthChecking(false);
+        return;
+      }
+
+      const { token } = JSON.parse(tokenData);
+      if (!token) {
+        setIsAdmin(false);
+        setAuthChecking(false);
+        return;
+      }
+
+      // Verify admin status
+      const response = await fetch("/api/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsAdmin(data.user?.isAdmin === true);
+      } else {
+        setIsAdmin(false);
+      }
+    } catch (err) {
+      console.error("Error checking admin access:", err);
+      setIsAdmin(false);
+    }
+    setAuthChecking(false);
+  };
 
   const fetchStats = async () => {
     setLoading(true);
@@ -227,7 +272,10 @@ export function AdminDashboard() {
     }
   };
 
+  // Fetch stats only after confirming admin access
   useEffect(() => {
+    if (isAdmin !== true) return;
+
     fetchStats();
     fetchFailedTracks();
 
@@ -237,7 +285,7 @@ export function AdminDashboard() {
       fetchFailedTracks();
     }, ADMIN_DASHBOARD.REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAdmin]);
 
   // Maintenance actions
   const handleMigrateISRC = async () => {
@@ -384,6 +432,39 @@ export function AdminDashboard() {
       setIsRunningSync(false);
     }
   };
+
+  // Show loading while checking auth
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto mb-4" />
+          <p className="text-lg">Checking access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if not admin
+  if (isAdmin === false) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
+        <div className="text-white text-center max-w-md">
+          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+          <p className="text-slate-300 mb-4">
+            You must be logged in as an admin to access this page.
+          </p>
+          <Button
+            onClick={() => (window.location.href = "/")}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            Go to Gallery
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading && !stats) {
     return (

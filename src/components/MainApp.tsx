@@ -1,25 +1,30 @@
 import { useState } from "react";
-import { Music, LogOut, ChevronDown } from "lucide-react";
-import type { CollectionInfo, CategoryBin, Track } from "@/types/spotify";
+import { LogOut, ChevronDown, User, Settings, LogIn } from "lucide-react";
+import type { CategoryBin, Track } from "@/types/spotify";
+import type { GalleryStats } from "@/hooks/useGalleryLoader";
+import type { UserInfo } from "./GalleryViewer";
 
 interface MainAppProps {
-  accessToken: string;
-  userId: string;
-  collectionInfo: CollectionInfo;
   bins: CategoryBin[];
   tracks: Map<string, Track>;
-  onChangeCollection: () => void;
-  onLogout: () => void;
+  // Gallery stats
+  galleryStats?: GalleryStats | null;
+  // User info (if logged in)
+  userInfo?: UserInfo | null;
+  // Callbacks
+  onLogin?: () => void;
+  onLogout?: () => void;
+  onGoToAdmin?: () => void;
 }
 
 export function MainApp({
-  accessToken,
-  userId,
-  collectionInfo,
   bins,
   tracks,
-  onChangeCollection,
+  galleryStats,
+  userInfo,
+  onLogin,
   onLogout,
+  onGoToAdmin,
 }: MainAppProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<"tracks" | "plots" | "staging">(
@@ -33,61 +38,97 @@ export function MainApp({
       <nav className="fixed top-0 left-0 right-0 h-18 bg-slate-900/80 backdrop-blur-md border-b border-white/10 z-50">
         <div className="container mx-auto px-4 h-full flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-white">Organize Your Music</h1>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700">
-              <Music size={16} className="text-green-500" />
-              <span className="text-sm text-slate-300">{collectionInfo.name}</span>
-            </div>
-          </div>
-          
-          {/* User Menu */}
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
-            >
-              <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm">
-                {userId.charAt(0).toUpperCase()}
+            <h1 className="text-2xl font-bold text-white">Music Gallery</h1>
+            {galleryStats?.ownerName && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700">
+                <User size={16} className="text-purple-400" />
+                <span className="text-sm text-slate-300">
+                  {galleryStats.ownerName}'s Collection
+                </span>
               </div>
-              <span className="text-sm text-slate-300">{userId}</span>
-              <ChevronDown size={16} className="text-slate-400" />
-            </button>
-
-            {showUserMenu && (
-              <>
-                {/* Backdrop */}
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowUserMenu(false)}
-                />
-                
-                {/* Dropdown Menu */}
-                <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onChangeCollection();
-                    }}
-                    className="w-full px-4 py-3 text-left text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center gap-3"
-                  >
-                    <Music size={18} />
-                    Change Collection
-                  </button>
-                  <div className="border-t border-slate-800" />
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onLogout();
-                    }}
-                    className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-slate-800 hover:text-red-300 transition-colors flex items-center gap-3"
-                  >
-                    <LogOut size={18} />
-                    Logout
-                  </button>
-                </div>
-              </>
             )}
           </div>
+
+          {/* User Menu - for authenticated users */}
+          {userInfo && (
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
+              >
+                {userInfo.profileImage ? (
+                  <img
+                    src={userInfo.profileImage}
+                    alt={userInfo.displayName}
+                    className="w-8 h-8 rounded-full"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm">
+                    {userInfo.displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-sm text-slate-300">
+                  {userInfo.displayName}
+                </span>
+                <ChevronDown size={16} className="text-slate-400" />
+              </button>
+
+              {showUserMenu && (
+                <>
+                  {/* Backdrop */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowUserMenu(false)}
+                  />
+
+                  {/* Dropdown Menu */}
+                  <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                    {/* Admin option - only for admin users */}
+                    {userInfo.isAdmin && onGoToAdmin && (
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onGoToAdmin();
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-purple-400 hover:bg-slate-800 hover:text-purple-300 transition-colors flex items-center gap-3"
+                      >
+                        <Settings size={18} />
+                        Admin
+                      </button>
+                    )}
+                    {onLogout && (
+                      <>
+                        {userInfo.isAdmin && onGoToAdmin && (
+                          <div className="border-t border-slate-800" />
+                        )}
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            onLogout();
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-slate-800 hover:text-red-300 transition-colors flex items-center gap-3"
+                        >
+                          <LogOut size={18} />
+                          Logout
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Login button - for non-authenticated users */}
+          {!userInfo && onLogin && (
+            <button
+              onClick={onLogin}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors"
+            >
+              <LogIn size={18} />
+              Login
+            </button>
+          )}
         </div>
       </nav>
 

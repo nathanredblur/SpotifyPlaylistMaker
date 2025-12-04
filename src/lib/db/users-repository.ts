@@ -5,12 +5,14 @@
 
 import { getDatabase } from "./database";
 import type { Database } from "better-sqlite3";
+import type { UserRole } from "./schema";
 
 /**
  * User record structure
  */
 export interface UserRecord {
   spotify_user_id: string;
+  role: UserRole;
   display_name?: string | null;
   email?: string | null;
   profile_image_url?: string | null;
@@ -27,6 +29,7 @@ export interface UserRecord {
  */
 export interface CreateUserInput {
   spotify_user_id: string;
+  role?: UserRole;
   display_name?: string;
   email?: string;
   profile_image_url?: string;
@@ -53,13 +56,14 @@ export class UsersRepository {
 
   /**
    * Create or update a user
+   * Note: role is only set on INSERT, not on UPDATE (to prevent accidental role changes)
    */
   upsert(input: CreateUserInput): void {
     const stmt = this.db.prepare(`
       INSERT INTO users (
-        spotify_user_id, display_name, email, profile_image_url, 
+        spotify_user_id, role, display_name, email, profile_image_url, 
         country, spotify_user_data
-      ) VALUES (?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(spotify_user_id) DO UPDATE SET
         display_name = excluded.display_name,
         email = excluded.email,
@@ -71,6 +75,7 @@ export class UsersRepository {
 
     stmt.run(
       input.spotify_user_id,
+      input.role || "regular",
       input.display_name || null,
       input.email || null,
       input.profile_image_url || null,
@@ -223,5 +228,90 @@ export class UsersRepository {
       .prepare("DELETE FROM users WHERE spotify_user_id = ?")
       .run(spotifyUserId);
   }
-}
 
+  // ============================================
+  // Role Management Methods
+  // ============================================
+
+  /**
+   * Get the admin user (there should be only one)
+   */
+  getAdmin(): UserRecord | null {
+    const result = this.db
+      .prepare("SELECT * FROM users WHERE role = 'admin' LIMIT 1")
+      .get() as UserRecord | undefined;
+    return result || null;
+  }
+
+  /**
+   * Check if a user is an admin
+   */
+  isAdmin(spotifyUserId: string): boolean {
+    const result = this.db
+      .prepare(
+        "SELECT 1 FROM users WHERE spotify_user_id = ? AND role = 'admin' LIMIT 1"
+      )
+      .get(spotifyUserId);
+    return !!result;
+  }
+
+  /**
+   * Set a user's role
+   * Note: Use promoteToAdmin() for making a user admin (includes validation)
+   */
+  setRole(spotifyUserId: string, role: UserRole): void {
+    this.db
+      .prepare(
+        `UPDATE users 
+         SET role = ?, updated_at = CURRENT_TIMESTAMP 
+         WHERE spotify_user_id = ?`
+      )
+      .run(role, spotifyUserId);
+  }
+
+  /**
+   * Promote a user to admin
+   * Validates that no other admin exists (only one admin allowed)
+   * @returns true if promotion succeeded, false if another admin exists
+   */
+  promoteToAdmin(spotifyUserId: string): boolean {
+    const existingAdmin = this.getAdmin();
+
+    // If there's already an admin and it's not this user, fail
+    if (existingAdmin && existingAdmin.spotify_user_id !== spotifyUserId) {
+      return false;
+    }
+
+    // Promote the user
+    this.setRole(spotifyUserId, "admin");
+    return true;
+  }
+
+  /**
+   * Demote admin to regular user
+   * Warning: This will leave the system without an admin!
+   */
+  demoteAdmin(spotifyUserId: string): void {
+    this.setRole(spotifyUserId, "regular");
+  }
+
+  /**
+   * Check if any admin exists in the system
+   */
+  hasAdmin(): boolean {
+    const result = this.db
+      .prepare("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1")
+      .get();
+    return !!result;
+  }
+
+  /**
+   * Get user count by role
+   */
+  countByRole(role: UserRole): number {
+    const result = this.db
+      .prepare("SELECT COUNT(*) as count FROM users WHERE role = ?")
+      .get(role) as { count: number };
+    return result.count;
+  }
+}

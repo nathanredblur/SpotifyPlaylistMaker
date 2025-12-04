@@ -3,15 +3,25 @@
  * This file contains all table creation SQL statements
  */
 
-export const SCHEMA_VERSION = 3; // v3: Removed UNIQUE constraint from soundcharts_uuid
+export const SCHEMA_VERSION = 4; // v4: Added role column to users table
 
 /**
  * Users table - stores Spotify user information and their track associations
  * This allows multi-user support and tracks which tracks belong to which user
  */
+/**
+ * User roles
+ * - admin: Gallery owner, can sync tracks and manage the catalog
+ * - regular: Gallery visitor, can browse tracks (future: create playlists)
+ */
+export type UserRole = "admin" | "regular";
+
 export const CREATE_USERS_TABLE = `
 CREATE TABLE IF NOT EXISTS users (
   spotify_user_id TEXT PRIMARY KEY,
+  
+  -- Role (admin or regular)
+  role TEXT NOT NULL DEFAULT 'regular' CHECK(role IN ('admin', 'regular')),
   
   -- User profile
   display_name TEXT,

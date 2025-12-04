@@ -1,8 +1,16 @@
 # Database Architecture - Immutable Data Model
 
+**Last Updated**: November 29, 2025  
+**Schema Version**: 3
+
 ## Overview
 
-The Spotify Playlist Maker uses a **hybrid data model** that distinguishes between **immutable data** (that never changes) and **mutable user data** (that changes over time).
+The Spotify Playlist Maker uses a **hybrid data model** with a **gallery concept**:
+
+- **Admin user** syncs their tracks → These become the public gallery
+- **Regular users** browse the admin's tracks (no personal tracks)
+- **Immutable data** (audio features, metadata) is stored once and never changes
+- **Mutable data** (user relationships, playlists) changes over time
 
 ## Core Principle: Immutability
 
@@ -27,83 +35,103 @@ The Spotify Playlist Maker uses a **hybrid data model** that distinguishes betwe
 ## Database Schema
 
 ### 1. `users` Table
-**Purpose**: Store Spotify user information
+
+**Purpose**: Store user information and roles
 
 ```sql
 CREATE TABLE users (
   spotify_user_id TEXT PRIMARY KEY,
+  role TEXT NOT NULL DEFAULT 'regular' CHECK(role IN ('admin', 'regular')), -- TODO: Add this column
   display_name TEXT,
   email TEXT,
   profile_image_url TEXT,
-  country TEXT,
-  spotify_user_data TEXT,        -- JSON: Complete user object
-  last_sync_at TEXT,              -- When we last synced
-  last_track_added_at TEXT,       -- Most recent track from Spotify
-  created_at TEXT,
-  updated_at TEXT
+  last_sync_at TEXT,              -- When admin last synced (admin only)
+  last_track_added_at TEXT,       -- Most recent track from Spotify (admin only)
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
 **Characteristics**:
-- One row per Spotify user
-- Updates on each sync (last_sync_at)
-- Enables multi-user support
+
+- **Admin user**: Only ONE admin allowed (gallery owner)
+  - Can sync tracks
+  - Tracks become the public gallery
+  - Has access to admin dashboard
+- **Regular users**: Multiple users allowed (gallery visitors)
+  - Browse admin's tracks
+  - Can create personal playlists (future)
+  - No personal track syncing
 
 ### 2. `tracks` Table
-**Purpose**: Store IMMUTABLE track data (Spotify + SoundCharts)
+
+**Purpose**: Store IMMUTABLE track data (The Gallery)
 
 ```sql
 CREATE TABLE tracks (
   spotify_id TEXT PRIMARY KEY,
-  soundcharts_uuid TEXT UNIQUE,
-  
+  soundcharts_uuid TEXT,  -- NOT UNIQUE (multiple Spotify tracks can share same SoundCharts song)
+
   -- IMMUTABLE Spotify data
   spotify_data TEXT NOT NULL,
-  
+
   -- IMMUTABLE SoundCharts data
   soundcharts_data TEXT,
   soundcharts_fetched_at TEXT,
-  
+
   -- Denormalized fields for fast queries
   name TEXT NOT NULL,
   duration_ms INTEGER,
   isrc TEXT,
   tempo REAL,
   energy REAL,
-  -- ... more audio features
-  
-  created_at TEXT,
-  updated_at TEXT
+  danceability REAL,
+  valence REAL,
+  acousticness REAL,
+  instrumentalness REAL,
+  liveness REAL,
+  loudness REAL,
+  speechiness REAL,
+  key INTEGER,
+  mode INTEGER,
+  time_signature INTEGER,
+  artists_json TEXT,  -- JSON array of artists
+
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
 **Characteristics**:
+
 - **NEVER deleted** - Once a track is in the database, it stays forever
 - **NEVER expires** - Audio features and metadata don't change
-- Shared across all users (many-to-many relationship via `user_tracks`)
-- Only updated when SoundCharts data is fetched for the first time
+- **Admin's tracks only** - Only admin can add tracks (the gallery)
+- **Public catalog** - All users see these tracks
+- **No UNIQUE on soundcharts_uuid** - Same song can have multiple Spotify IDs (different albums, versions)
 
 ### 3. `user_tracks` Table (Junction Table)
-**Purpose**: Link users to their saved tracks
+
+**Purpose**: Link admin to their tracks (gallery ownership)
 
 ```sql
 CREATE TABLE user_tracks (
   user_id TEXT NOT NULL,
   track_id TEXT NOT NULL,
-  added_at TEXT NOT NULL,        -- When user added to their library
-  created_at TEXT,
-  
+  added_at TEXT NOT NULL,        -- When admin added to their Spotify library
+
   PRIMARY KEY (user_id, track_id),
-  FOREIGN KEY (user_id) REFERENCES users(spotify_user_id),
-  FOREIGN KEY (track_id) REFERENCES tracks(spotify_id)
+  FOREIGN KEY (user_id) REFERENCES users(spotify_user_id) ON DELETE CASCADE,
+  FOREIGN KEY (track_id) REFERENCES tracks(spotify_id) ON DELETE CASCADE
 );
 ```
 
 **Characteristics**:
-- This is the **ONLY table that changes frequently**
-- Rows are added when user saves a track
-- Rows are removed when user unsaves a track
-- `added_at` is user-specific (different users can save the same track at different times)
+
+- **Admin only** - Currently only stores admin's track relationships
+- Rows are added when admin syncs new tracks
+- `added_at` is when admin added track to their Spotify library
+- **Future**: May store regular users' favorites/playlists
 
 ### 4. Supporting Tables
 
@@ -152,21 +180,25 @@ CREATE TABLE user_tracks (
 ## Benefits of This Architecture
 
 ### 1. **Efficiency**
+
 - No redundant data fetching
 - Audio features fetched once, shared across all users
 - Incremental syncs only fetch new tracks
 
 ### 2. **Scalability**
+
 - Supports multiple users without data duplication
 - Track data is shared (one track, many users)
 - Database grows linearly with unique tracks, not user-track combinations
 
 ### 3. **Data Integrity**
+
 - Immutable data can't be corrupted by updates
 - Clear separation between user data and track data
 - Foreign key constraints ensure referential integrity
 
 ### 4. **Performance**
+
 - Fast queries (no need to check expiration dates)
 - Efficient joins between users and tracks
 - Indexes on frequently queried fields
@@ -197,7 +229,7 @@ IMMUTABLE_DATA: {
 CACHE_TTL: {
   // Only check for NEW/REMOVED tracks every 24 hours
   USER_TRACKS_REFRESH: 24 * 60 * 60 * 1000,
-  
+
   // User profile can change
   USER_PROFILE: 7 * 24 * 60 * 60 * 1000,
 }
@@ -208,7 +240,7 @@ CACHE_TTL: {
 ### Get User's Tracks with Audio Features
 
 ```sql
-SELECT 
+SELECT
   t.*,
   ut.added_at as user_added_at
 FROM user_tracks ut
@@ -274,4 +306,3 @@ If you have existing data in the old schema (with `added_at` in `tracks` table):
 - **Collaborative Filtering**: Recommend tracks based on similar users
 - **Statistics**: Track listening patterns across users
 - **Caching Layer**: Add Redis for frequently accessed data
-

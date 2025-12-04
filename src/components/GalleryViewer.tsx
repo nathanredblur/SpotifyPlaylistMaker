@@ -1,7 +1,6 @@
 /**
  * Gallery Viewer Component
- * Displays the public music gallery
- * Supports both anonymous and authenticated users
+ * Displays the public music gallery (no authentication required)
  */
 
 import { useState, useEffect } from "react";
@@ -9,30 +8,7 @@ import { useGalleryLoader } from "@/hooks/useGalleryLoader";
 import { LoadingScreen } from "./LoadingScreen";
 import { MainApp } from "./MainApp";
 
-export interface UserInfo {
-  id: string;
-  displayName: string;
-  email?: string | null;
-  profileImage?: string | null;
-  role: "admin" | "regular";
-  isAdmin: boolean;
-}
-
-interface GalleryViewerProps {
-  accessToken?: string | null;
-  userInfo?: UserInfo | null;
-  onLogin?: () => void;
-  onLogout?: () => void;
-  onGoToAdmin?: () => void;
-}
-
-export function GalleryViewer({
-  accessToken,
-  userInfo,
-  onLogin,
-  onLogout,
-  onGoToAdmin,
-}: GalleryViewerProps) {
+export function GalleryViewer() {
   const [isInitializing, setIsInitializing] = useState(true);
   const galleryLoader = useGalleryLoader();
 
@@ -54,22 +30,12 @@ export function GalleryViewer({
             Gallery Unavailable
           </h2>
           <p className="text-slate-300 mb-4">{galleryLoader.error}</p>
-          <div className="flex gap-2 justify-center">
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-            >
-              Retry
-            </button>
-            {onLogin && (
-              <button
-                onClick={onLogin}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                Admin Login
-              </button>
-            )}
-          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -98,17 +64,16 @@ export function GalleryViewer({
             Gallery is Empty
           </h2>
           <p className="text-slate-400 mb-6">
-            The music gallery hasn't been set up yet.
-            {onLogin && " If you're the admin, log in to sync your tracks."}
-          </p>
-          {onLogin && (
-            <button
-              onClick={onLogin}
-              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+            The music gallery hasn't been set up yet. The admin needs to sync
+            tracks from the{" "}
+            <a
+              href="/admin"
+              className="text-purple-400 hover:text-purple-300 underline"
             >
-              Admin Login
-            </button>
-          )}
+              admin panel
+            </a>
+            .
+          </p>
         </div>
       </div>
     );
@@ -120,10 +85,6 @@ export function GalleryViewer({
       bins={galleryLoader.bins}
       tracks={galleryLoader.tracks}
       galleryStats={galleryLoader.galleryStats}
-      userInfo={userInfo}
-      onLogin={onLogin}
-      onLogout={onLogout}
-      onGoToAdmin={onGoToAdmin}
     />
   );
 }

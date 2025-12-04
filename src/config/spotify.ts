@@ -161,12 +161,16 @@ export function getCallbackUri(): string {
 
 /**
  * Get the full authorization URL for Spotify OAuth with PKCE
+ * @param returnPath - Optional path to redirect to after auth (default: "/")
  * @returns The complete Spotify authorization URL with all required parameters
  */
-export async function getAuthorizationUrl(): Promise<string> {
+export async function getAuthorizationUrl(returnPath = "/"): Promise<string> {
   // Generate PKCE code verifier and challenge
   const codeVerifier = generateCodeVerifier(64);
   const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+  // Encode state as: codeVerifier|returnPath
+  const state = `${codeVerifier}|${returnPath}`;
 
   const params = new URLSearchParams({
     client_id: SPOTIFY_CONFIG.clientId,
@@ -175,7 +179,7 @@ export async function getAuthorizationUrl(): Promise<string> {
     scope: SPOTIFY_CONFIG.scopes.join(" "),
     code_challenge_method: "S256",
     code_challenge: codeChallenge,
-    state: codeVerifier, // Pass verifier through state for backend to use
+    state: state, // Pass verifier and return path through state
   });
 
   return `https://accounts.spotify.com/authorize?${params.toString()}`;

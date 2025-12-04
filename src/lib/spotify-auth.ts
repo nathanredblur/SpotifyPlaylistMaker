@@ -3,13 +3,17 @@ import { STORAGE_KEYS } from "@/config/constants";
 
 /**
  * Redirects the user to Spotify's authorization page
+ * @param returnPath - Optional path to redirect to after auth (default: current path)
  * @throws {ConfigurationError} If Spotify configuration is invalid
  */
-export async function authorizeSpotify(): Promise<void> {
+export async function authorizeSpotify(returnPath?: string): Promise<void> {
   try {
-    const authUrl = await getAuthorizationUrl();
+    // Use current path if not specified
+    const path = returnPath || window.location.pathname;
+    const authUrl = await getAuthorizationUrl(path);
     console.log("🔐 Redirecting to Spotify authorization:");
     console.log("   URL:", authUrl);
+    console.log("   Return path:", path);
     window.location.href = authUrl;
   } catch (error) {
     // Log the error and show user-friendly message

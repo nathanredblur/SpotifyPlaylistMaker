@@ -12,10 +12,14 @@ import {
   Trash2,
   Download,
   ExternalLink,
+  LogIn,
+  LogOut,
+  Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ADMIN_DASHBOARD, STORAGE_KEYS } from "@/config/constants";
+import { authorizeSpotify } from "@/lib/spotify-auth";
 
 interface DatabaseStats {
   tracks: {
@@ -193,14 +197,47 @@ export function AdminDashboard() {
     text: string;
   } | null>(null);
 
-  // Check admin access on mount
+  // Check admin access on mount (and handle OAuth callback)
   useEffect(() => {
-    checkAdminAccess();
+    handleAuthAndCheckAccess();
   }, []);
 
-  const checkAdminAccess = async () => {
+  const handleAuthAndCheckAccess = async () => {
     setAuthChecking(true);
     try {
+      // Check for OAuth callback in URL hash
+      const hash = window.location.hash;
+      if (hash) {
+        const params = new URLSearchParams(hash.substring(1));
+        const accessToken = params.get("access_token");
+        const expiresIn = params.get("expires_in");
+        const error = params.get("error");
+
+        if (error) {
+          console.error("OAuth error:", error);
+          setIsAdmin(false);
+          setAuthChecking(false);
+          return;
+        }
+
+        if (accessToken) {
+          // Store the token
+          const tokenData = {
+            token: accessToken,
+            expiresAt: Date.now() + parseInt(expiresIn || "3600") * 1000,
+          };
+          localStorage.setItem(
+            STORAGE_KEYS.ACCESS_TOKEN,
+            JSON.stringify(tokenData)
+          );
+          // Clean up URL
+          window.history.replaceState(null, "", window.location.pathname);
+          // Verify admin status with the new token
+          await verifyAdminStatus(accessToken);
+          return;
+        }
+      }
+
       // Get token from localStorage
       const tokenData = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
       if (!tokenData) {
@@ -209,14 +246,26 @@ export function AdminDashboard() {
         return;
       }
 
-      const { token } = JSON.parse(tokenData);
-      if (!token) {
+      const { token, expiresAt } = JSON.parse(tokenData);
+      if (!token || (expiresAt && Date.now() > expiresAt)) {
+        // Token missing or expired
+        localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
         setIsAdmin(false);
         setAuthChecking(false);
         return;
       }
 
       // Verify admin status
+      await verifyAdminStatus(token);
+    } catch (err) {
+      console.error("Error checking admin access:", err);
+      setIsAdmin(false);
+      setAuthChecking(false);
+    }
+  };
+
+  const verifyAdminStatus = async (token: string) => {
+    try {
       const response = await fetch("/api/auth/me", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -230,7 +279,7 @@ export function AdminDashboard() {
         setIsAdmin(false);
       }
     } catch (err) {
-      console.error("Error checking admin access:", err);
+      console.error("Error verifying admin status:", err);
       setIsAdmin(false);
     }
     setAuthChecking(false);
@@ -286,6 +335,12 @@ export function AdminDashboard() {
     }, ADMIN_DASHBOARD.REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [isAdmin]);
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    window.location.reload();
+  };
 
   // Maintenance actions
   const handleMigrateISRC = async () => {
@@ -445,22 +500,65 @@ export function AdminDashboard() {
     );
   }
 
-  // Show access denied if not admin
+  // Show login page if not authenticated or not admin
   if (isAdmin === false) {
+    // Check if user is logged in but not admin
+    const tokenData = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    const isLoggedIn = tokenData !== null;
+
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-white text-center max-w-md">
-          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-          <p className="text-slate-300 mb-4">
-            You must be logged in as an admin to access this page.
-          </p>
-          <Button
-            onClick={() => (window.location.href = "/")}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            Go to Gallery
-          </Button>
+        <div className="text-white text-center max-w-md px-4">
+          {isLoggedIn ? (
+            // Logged in but not admin
+            <>
+              <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+              <p className="text-slate-300 mb-4">
+                Your account doesn't have admin privileges. Only the first user
+                to log in becomes the admin.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button
+                  onClick={() => (window.location.href = "/")}
+                  variant="outline"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                >
+                  <Home size={18} className="mr-2" />
+                  Go to Gallery
+                </Button>
+              </div>
+            </>
+          ) : (
+            // Not logged in - show login page
+            <>
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                <Music size={40} className="text-white" />
+              </div>
+              <h1 className="text-3xl font-bold mb-2">Admin Login</h1>
+              <p className="text-slate-400 mb-8">
+                Log in with your Spotify account to access the admin dashboard.
+              </p>
+              <Button
+                onClick={() => authorizeSpotify()}
+                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+              >
+                <LogIn size={20} className="mr-2" />
+                Login with Spotify
+              </Button>
+              <p className="text-slate-500 text-sm mt-6">
+                The first user to log in will become the admin.
+              </p>
+              <div className="mt-8 pt-6 border-t border-slate-800">
+                <a
+                  href="/"
+                  className="text-slate-400 hover:text-white transition-colors text-sm"
+                >
+                  ← Back to Gallery
+                </a>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -505,7 +603,7 @@ export function AdminDashboard() {
               Last updated: {lastUpdate.toLocaleTimeString()}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
             <Button
               onClick={fetchStats}
               disabled={loading}
@@ -516,10 +614,18 @@ export function AdminDashboard() {
             </Button>
             <a
               href="/"
-              className="text-blue-400 hover:text-blue-300 flex items-center"
+              className="text-slate-400 hover:text-white transition-colors"
             >
-              ← Back to App
+              ← Gallery
             </a>
+            <Button
+              onClick={handleLogout}
+              variant="outline"
+              className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+            >
+              <LogOut size={16} className="mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
 

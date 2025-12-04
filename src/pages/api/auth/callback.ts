@@ -23,24 +23,24 @@ export const GET: APIRoute = async (context) => {
   const error = url.searchParams.get("error");
   const state = url.searchParams.get("state");
 
+  // Parse state: format is "codeVerifier|returnPath"
+  const [codeVerifier, returnPath = "/"] = (state || "").split("|");
+
   // Handle authorization errors
   if (error) {
     console.error("Spotify authorization error:", error);
-    return redirect(`/?error=${encodeURIComponent(error)}`);
+    return redirect(`${returnPath}?error=${encodeURIComponent(error)}`);
   }
 
   // Validate we have a code
   if (!code) {
     console.error("No authorization code received");
-    return redirect("/?error=no_code");
+    return redirect(`${returnPath}?error=no_code`);
   }
-
-  // Get code verifier from state (we passed it through the state parameter)
-  const codeVerifier = state;
 
   if (!codeVerifier) {
     console.error("No code verifier found");
-    return redirect("/?error=no_verifier");
+    return redirect(`${returnPath}?error=no_verifier`);
   }
 
   try {
@@ -66,7 +66,7 @@ export const GET: APIRoute = async (context) => {
       const errorData = await tokenResponse.json();
       console.error("Token exchange failed:", errorData);
       return redirect(
-        `/?error=${encodeURIComponent(
+        `${returnPath}?error=${encodeURIComponent(
           errorData.error_description || "token_exchange_failed"
         )}`
       );
@@ -119,13 +119,16 @@ export const GET: APIRoute = async (context) => {
       console.error("Failed to create/update user record:", userError);
     }
 
-    // Redirect back to home with token in hash (for client-side storage)
+    // Redirect back to the original page with token in hash (for client-side storage)
     // We use hash instead of query params for security (not sent to server on subsequent requests)
-    return redirect(`/#access_token=${accessToken}&expires_in=${expiresIn}`);
+    console.log(`✅ Auth successful, redirecting to: ${returnPath}`);
+    return redirect(
+      `${returnPath}#access_token=${accessToken}&expires_in=${expiresIn}`
+    );
   } catch (error) {
     console.error("Error during token exchange:", error);
     return redirect(
-      `/?error=${encodeURIComponent(
+      `${returnPath}?error=${encodeURIComponent(
         error instanceof Error ? error.message : "unknown_error"
       )}`
     );

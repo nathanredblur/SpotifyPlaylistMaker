@@ -1,41 +1,191 @@
-import { useState } from "react";
-import { LogOut, ChevronDown, User, Settings, LogIn } from "lucide-react";
+import { useState, useRef } from "react";
+import {
+  User,
+  Play,
+  Pause,
+  ExternalLink,
+  Copy,
+  Check,
+  Info,
+  X,
+} from "lucide-react";
 import type { CategoryBin, Track } from "@/types/spotify";
 import type { GalleryStats } from "@/hooks/useGalleryLoader";
-import type { UserInfo } from "./GalleryViewer";
 
 interface MainAppProps {
   bins: CategoryBin[];
   tracks: Map<string, Track>;
-  // Gallery stats
   galleryStats?: GalleryStats | null;
-  // User info (if logged in)
-  userInfo?: UserInfo | null;
-  // Callbacks
-  onLogin?: () => void;
-  onLogout?: () => void;
-  onGoToAdmin?: () => void;
 }
 
-export function MainApp({
-  bins,
-  tracks,
-  galleryStats,
-  userInfo,
-  onLogin,
-  onLogout,
-  onGoToAdmin,
-}: MainAppProps) {
-  const [showUserMenu, setShowUserMenu] = useState(false);
+export function MainApp({ bins, tracks, galleryStats }: MainAppProps) {
   const [activeTab, setActiveTab] = useState<"tracks" | "plots" | "staging">(
     "tracks"
   );
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Toggle track selection
+  const toggleTrackSelection = (trackId: string) => {
+    setSelectedTracks((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(trackId)) {
+        newSet.delete(trackId);
+      } else {
+        newSet.add(trackId);
+      }
+      return newSet;
+    });
+  };
+
+  // Play/pause preview
+  const togglePreview = (track: Track) => {
+    const previewUrl = track.details.preview_url;
+    if (!previewUrl) return;
+
+    if (playingTrackId === track.id) {
+      // Stop playing
+      audioRef.current?.pause();
+      setPlayingTrackId(null);
+    } else {
+      // Start playing new track
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const audio = new Audio(previewUrl);
+      audio.volume = 0.5;
+      audio.play();
+      audio.onended = () => setPlayingTrackId(null);
+      audioRef.current = audio;
+      setPlayingTrackId(track.id);
+    }
+  };
+
+  // Open track in Spotify
+  const openInSpotify = (trackId: string) => {
+    window.open(`https://open.spotify.com/track/${trackId}`, "_blank");
+  };
+
+  // Generate export text for Spotlistr
+  const generateExportText = () => {
+    const selectedTracksList = Array.from(selectedTracks)
+      .map((id) => tracks.get(id))
+      .filter((t): t is Track => t !== undefined);
+
+    return selectedTracksList
+      .map((track) => {
+        const artists = track.details.artists.map((a) => a.name).join(", ");
+        return `${artists} - ${track.details.name}`;
+      })
+      .join("\n");
+  };
+
+  // Copy to clipboard
+  const copyToClipboard = async () => {
+    const text = generateExportText();
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Get all tracks as array
+  const allTracks = Array.from(tracks.values());
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
+      {/* Hidden audio element for previews */}
+      <audio ref={audioRef} className="hidden" />
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 z-50"
+            onClick={() => setShowExportModal(false)}
+          />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">
+                Export {selectedTracks.size} Tracks
+              </h3>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Disclaimer */}
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <Info size={20} className="text-amber-400 mt-0.5 shrink-0" />
+                <div className="text-sm text-amber-200">
+                  <p className="font-semibold mb-1">
+                    Why can't we create playlists directly?
+                  </p>
+                  <p className="text-amber-200/80">
+                    Spotify's API restrictions require apps to have 250,000+
+                    monthly users to allow public authentication. As a personal
+                    project, we can't meet this requirement. Use{" "}
+                    <a
+                      href="https://www.spotlistr.com/search/textbox"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-amber-400 hover:text-amber-300 underline"
+                    >
+                      Spotlistr
+                    </a>{" "}
+                    to create playlists from the text below.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Export Text */}
+            <div className="bg-slate-800/50 rounded-lg p-4 mb-4 max-h-64 overflow-y-auto">
+              <pre className="text-sm text-slate-300 whitespace-pre-wrap font-mono">
+                {generateExportText()}
+              </pre>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between">
+              <a
+                href="https://www.spotlistr.com/search/textbox"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors"
+              >
+                <ExternalLink size={18} />
+                Open Spotlistr
+              </a>
+              <button
+                onClick={copyToClipboard}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-medium transition-colors"
+              >
+                {copied ? (
+                  <>
+                    <Check size={18} className="text-green-400" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={18} />
+                    Copy to Clipboard
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 h-18 bg-slate-900/80 backdrop-blur-md border-b border-white/10 z-50">
+      <nav className="fixed top-0 left-0 right-0 h-18 bg-slate-900/80 backdrop-blur-md border-b border-white/10 z-40">
         <div className="container mx-auto px-4 h-full flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-white">Music Gallery</h1>
@@ -49,86 +199,15 @@ export function MainApp({
             )}
           </div>
 
-          {/* User Menu - for authenticated users */}
-          {userInfo && (
-            <div className="relative">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
-              >
-                {userInfo.profileImage ? (
-                  <img
-                    src={userInfo.profileImage}
-                    alt={userInfo.displayName}
-                    className="w-8 h-8 rounded-full"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm">
-                    {userInfo.displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span className="text-sm text-slate-300">
-                  {userInfo.displayName}
-                </span>
-                <ChevronDown size={16} className="text-slate-400" />
-              </button>
-
-              {showUserMenu && (
-                <>
-                  {/* Backdrop */}
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowUserMenu(false)}
-                  />
-
-                  {/* Dropdown Menu */}
-                  <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
-                    {/* Admin option - only for admin users */}
-                    {userInfo.isAdmin && onGoToAdmin && (
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          onGoToAdmin();
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm text-purple-400 hover:bg-slate-800 hover:text-purple-300 transition-colors flex items-center gap-3"
-                      >
-                        <Settings size={18} />
-                        Admin
-                      </button>
-                    )}
-                    {onLogout && (
-                      <>
-                        {userInfo.isAdmin && onGoToAdmin && (
-                          <div className="border-t border-slate-800" />
-                        )}
-                        <button
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            onLogout();
-                          }}
-                          className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-slate-800 hover:text-red-300 transition-colors flex items-center gap-3"
-                        >
-                          <LogOut size={18} />
-                          Logout
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Login button - for non-authenticated users */}
-          {!userInfo && onLogin && (
-            <button
-              onClick={onLogin}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors"
-            >
-              <LogIn size={18} />
-              Login
-            </button>
-          )}
+          {/* Stats */}
+          <div className="flex items-center gap-4 text-sm text-slate-400">
+            <span>{tracks.size} tracks</span>
+            {selectedTracks.size > 0 && (
+              <span className="text-green-400">
+                {selectedTracks.size} selected
+              </span>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -210,14 +289,111 @@ export function MainApp({
             <div className="bg-slate-900/30 backdrop-blur-sm rounded-lg border border-white/10 p-6">
               {activeTab === "tracks" && (
                 <div className="text-white">
-                  <h2 className="text-2xl font-bold mb-4">Track List</h2>
-                  <div className="bg-slate-800/30 rounded-lg p-6 text-center">
-                    <p className="text-lg text-slate-300 mb-2">
-                      {tracks.size} tracks loaded
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      Select a category from the sidebar to view tracks
-                    </p>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold">Track List</h2>
+                    <span className="text-sm text-slate-400">
+                      Click a track to select it for export
+                    </span>
+                  </div>
+
+                  {/* Track List */}
+                  <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+                    {allTracks.slice(0, 100).map((track) => (
+                      <div
+                        key={track.id}
+                        className={`flex items-center gap-4 p-3 rounded-lg transition-colors cursor-pointer ${
+                          selectedTracks.has(track.id)
+                            ? "bg-green-500/20 border border-green-500/50"
+                            : "bg-slate-800/30 hover:bg-slate-800/50 border border-transparent"
+                        }`}
+                        onClick={() => toggleTrackSelection(track.id)}
+                      >
+                        {/* Album Art */}
+                        <div className="relative w-12 h-12 shrink-0">
+                          {track.details.album?.images?.[0]?.url ? (
+                            <img
+                              src={track.details.album.images[0].url}
+                              alt={track.details.album.name}
+                              className="w-full h-full rounded object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full rounded bg-slate-700 flex items-center justify-center">
+                              <span className="text-slate-500 text-xs">🎵</span>
+                            </div>
+                          )}
+
+                          {/* Preview Button Overlay */}
+                          {track.details.preview_url && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePreview(track);
+                              }}
+                              className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity rounded"
+                            >
+                              {playingTrackId === track.id ? (
+                                <Pause size={20} className="text-white" />
+                              ) : (
+                                <Play size={20} className="text-white" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Track Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-white truncate">
+                            {track.details.name}
+                          </p>
+                          <p className="text-sm text-slate-400 truncate">
+                            {track.details.artists
+                              .map((a) => a.name)
+                              .join(", ")}
+                          </p>
+                        </div>
+
+                        {/* Playing Indicator */}
+                        {playingTrackId === track.id && (
+                          <div className="flex items-center gap-1 text-green-400">
+                            <div className="w-1 h-3 bg-green-400 rounded animate-pulse" />
+                            <div className="w-1 h-4 bg-green-400 rounded animate-pulse delay-75" />
+                            <div className="w-1 h-2 bg-green-400 rounded animate-pulse delay-150" />
+                          </div>
+                        )}
+
+                        {/* Open in Spotify */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openInSpotify(track.id);
+                          }}
+                          className="p-2 text-slate-400 hover:text-green-400 transition-colors"
+                          title="Open in Spotify"
+                        >
+                          <ExternalLink size={18} />
+                        </button>
+
+                        {/* Selection Indicator */}
+                        <div
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                            selectedTracks.has(track.id)
+                              ? "bg-green-500 border-green-500"
+                              : "border-slate-500"
+                          }`}
+                        >
+                          {selectedTracks.has(track.id) && (
+                            <Check size={14} className="text-white" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {allTracks.length > 100 && (
+                      <p className="text-center text-slate-500 text-sm py-4">
+                        Showing first 100 tracks. Use sidebar filters to narrow
+                        down.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -233,9 +409,21 @@ export function MainApp({
 
               {activeTab === "staging" && (
                 <div className="text-white">
-                  <h2 className="text-2xl font-bold mb-4">
-                    Staging Playlist ({selectedTracks.size} tracks)
-                  </h2>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold">
+                      Staging Playlist ({selectedTracks.size} tracks)
+                    </h2>
+                    {selectedTracks.size > 0 && (
+                      <button
+                        onClick={() => setShowExportModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors"
+                      >
+                        <ExternalLink size={18} />
+                        Export for Spotlistr
+                      </button>
+                    )}
+                  </div>
+
                   {selectedTracks.size === 0 ? (
                     <div className="text-center text-slate-300 py-12">
                       <p className="text-lg mb-4">
@@ -243,14 +431,62 @@ export function MainApp({
                       </p>
                       <p className="text-sm">
                         To add tracks to this staging playlist, head back to{" "}
-                        <strong>The Track List</strong> or{" "}
-                        <strong>The Plots</strong> and select some tracks.
+                        <strong>The Track List</strong> and click on tracks to
+                        select them.
                       </p>
                     </div>
                   ) : (
-                    <p className="text-slate-300">
-                      Selected tracks will go here
-                    </p>
+                    <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+                      {Array.from(selectedTracks).map((trackId) => {
+                        const track = tracks.get(trackId);
+                        if (!track) return null;
+
+                        return (
+                          <div
+                            key={track.id}
+                            className="flex items-center gap-4 p-3 rounded-lg bg-slate-800/30 border border-slate-700"
+                          >
+                            {/* Album Art */}
+                            <div className="relative w-12 h-12 shrink-0">
+                              {track.details.album?.images?.[0]?.url ? (
+                                <img
+                                  src={track.details.album.images[0].url}
+                                  alt={track.details.album.name}
+                                  className="w-full h-full rounded object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full rounded bg-slate-700 flex items-center justify-center">
+                                  <span className="text-slate-500 text-xs">
+                                    🎵
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Track Info */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-white truncate">
+                                {track.details.name}
+                              </p>
+                              <p className="text-sm text-slate-400 truncate">
+                                {track.details.artists
+                                  .map((a) => a.name)
+                                  .join(", ")}
+                              </p>
+                            </div>
+
+                            {/* Remove Button */}
+                            <button
+                              onClick={() => toggleTrackSelection(track.id)}
+                              className="p-2 text-slate-400 hover:text-red-400 transition-colors"
+                              title="Remove from selection"
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               )}

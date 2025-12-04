@@ -8,6 +8,7 @@ import {
   initializeCategoryBins,
   categorizeTrack,
   sortNodesByTrackCount,
+  addGenreNode,
 } from "@/lib/categorizer";
 import type { Track, CategoryBin } from "@/types/spotify";
 
@@ -100,34 +101,59 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
       setProgress(20);
       setMessage("Loading tracks...");
 
-      // Fetch all tracks (paginated)
-      let allTracks: Array<Record<string, unknown>> = [];
-      let offset = 0;
+      // First, get the total count to know how many pages we need
+      const initialResponse = await fetch(
+        "/api/gallery/tracks?limit=1&offset=0"
+      );
+      if (!initialResponse.ok) {
+        throw new Error("Failed to load gallery tracks");
+      }
+      const initialData = await initialResponse.json();
+      const totalTracks = initialData.pagination.total;
+
+      // Calculate number of pages needed (500 tracks per page)
       const limit = 500;
-      let hasMore = true;
+      const totalPages = Math.ceil(totalTracks / limit);
 
-      while (hasMore) {
-        const tracksResponse = await fetch(
-          `/api/gallery/tracks?limit=${limit}&offset=${offset}`
-        );
+      setMessage(`Loading ${totalTracks} tracks...`);
 
-        if (!tracksResponse.ok) {
-          throw new Error("Failed to load gallery tracks");
-        }
+      // Fetch all pages in parallel for faster loading
+      const pagePromises = Array.from({ length: totalPages }, (_, i) =>
+        fetch(`/api/gallery/tracks?limit=${limit}&offset=${i * limit}`).then(
+          (res) => {
+            if (!res.ok) throw new Error("Failed to load gallery tracks");
+            return res.json();
+          }
+        )
+      );
 
-        const tracksData = await tracksResponse.json();
-        allTracks = allTracks.concat(tracksData.tracks);
+      // Wait for all pages with progress updates
+      const allTracks: Array<Record<string, unknown>> = [];
+      let completedPages = 0;
 
-        hasMore = tracksData.pagination.hasMore;
-        offset += limit;
+      const results = await Promise.all(
+        pagePromises.map((promise) =>
+          promise.then((data) => {
+            completedPages++;
+            const loadProgress = Math.min(
+              20 + (completedPages / totalPages) * 30,
+              50
+            );
+            setProgress(loadProgress);
+            setMessage(
+              `Loading tracks... ${Math.min(
+                completedPages * limit,
+                totalTracks
+              )}/${totalTracks}`
+            );
+            return data;
+          })
+        )
+      );
 
-        // Update progress based on how many tracks we've loaded
-        const loadProgress = Math.min(
-          20 + (allTracks.length / (tracksData.pagination.total || 1)) * 30,
-          50
-        );
-        setProgress(loadProgress);
-        setMessage(`Loading tracks... ${allTracks.length}/${tracksData.pagination.total}`);
+      // Combine all results
+      for (const result of results) {
+        allTracks.push(...result.tracks);
       }
 
       if (allTracks.length === 0) {
@@ -153,6 +179,7 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
           explicit?: boolean;
           popularity?: number;
           preview_url?: string | null;
+          genres?: string[];
           audio_features?: {
             tempo?: number;
             energy?: number;
@@ -170,6 +197,10 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
         // Safely extract audio features
         const audioFeatures = galleryTrack.audio_features || {};
 
+        // Extract genres from API response
+        const genres = new Set<string>(galleryTrack.genres || []);
+        const topGenre = galleryTrack.genres?.[0] || "";
+
         // Convert to Track format
         const track: Track = {
           id: galleryTrack.id,
@@ -177,7 +208,8 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
             id: galleryTrack.id,
             name: galleryTrack.name || "Unknown Track",
             artists: galleryTrack.artists || [],
-            album: (galleryTrack.album || {}) as unknown as Track["details"]["album"],
+            album: (galleryTrack.album ||
+              {}) as unknown as Track["details"]["album"],
             duration_ms: galleryTrack.duration_ms || 0,
             explicit: galleryTrack.explicit || false,
             popularity: galleryTrack.popularity || 0,
@@ -202,11 +234,15 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
             duration_ms: galleryTrack.duration_ms || 0,
             popularity: galleryTrack.popularity || 0,
             year:
-              galleryTrack.album && typeof galleryTrack.album === "object" && "release_date" in galleryTrack.album
-                ? new Date(galleryTrack.album.release_date as string).getFullYear()
+              galleryTrack.album &&
+              typeof galleryTrack.album === "object" &&
+              "release_date" in galleryTrack.album
+                ? new Date(
+                    galleryTrack.album.release_date as string
+                  ).getFullYear()
                 : 0,
-            genres: new Set<string>(),
-            topGenre: "",
+            genres,
+            topGenre,
             source: "gallery",
             count: 1,
             age: 0,
@@ -217,6 +253,13 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
         };
 
         tracksMap.set(track.id, track);
+
+        // Add genre nodes dynamically
+        if (galleryTrack.genres && galleryTrack.genres.length > 0) {
+          for (const genre of galleryTrack.genres) {
+            addGenreNode(categoryBins, genre);
+          }
+        }
 
         // Categorize track
         categorizeTrack(track, categoryBins);
@@ -303,4 +346,3 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
     stopLoading,
   };
 }
-

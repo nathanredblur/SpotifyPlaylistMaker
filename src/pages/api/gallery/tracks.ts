@@ -15,12 +15,55 @@ export const prerender = false;
 /**
  * Supported sort fields
  */
-type SortField = "name" | "created_at" | "popularity" | "tempo" | "energy" | "danceability";
+type SortField =
+  | "name"
+  | "created_at"
+  | "popularity"
+  | "tempo"
+  | "energy"
+  | "danceability";
 
 /**
  * Supported sort orders
  */
 type SortOrder = "asc" | "desc";
+
+/**
+ * Genre data structure from SoundCharts
+ */
+interface SoundChartsGenre {
+  root: string;
+  sub?: string[];
+}
+
+/**
+ * Extract genres from SoundCharts data
+ */
+function extractGenres(soundchartsData: string | null): string[] {
+  if (!soundchartsData) return [];
+
+  try {
+    const data = JSON.parse(soundchartsData);
+    const genres = data?.object?.genres as SoundChartsGenre[] | undefined;
+
+    if (!genres || !Array.isArray(genres)) return [];
+
+    // Collect all genres (root + sub)
+    const allGenres: string[] = [];
+    for (const genre of genres) {
+      if (genre.root) {
+        allGenres.push(genre.root);
+      }
+      if (genre.sub && Array.isArray(genre.sub)) {
+        allGenres.push(...genre.sub);
+      }
+    }
+
+    return allGenres;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Transform a database track record to API response format
@@ -41,6 +84,9 @@ function transformTrack(track: TrackRecord) {
     console.error("Error parsing artists_json for track:", track.spotify_id, e);
   }
 
+  // Extract genres from SoundCharts data
+  const genres = extractGenres(track.soundcharts_data ?? null);
+
   return {
     id: track.spotify_id,
     name: track.name || "Unknown Track",
@@ -51,6 +97,7 @@ function transformTrack(track: TrackRecord) {
     isrc: track.isrc || null,
     artists: artistsJson,
     album: (spotifyData.album as Record<string, unknown>) || {},
+    genres, // Include genres from SoundCharts
     // Audio features from SoundCharts (if available)
     audio_features:
       track.tempo !== null && track.tempo !== undefined
@@ -80,15 +127,28 @@ export const GET: APIRoute = async ({ url }) => {
     const repos = getRepositories();
 
     // Get query parameters
-    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50", 10), 500);
+    const limit = Math.min(
+      parseInt(url.searchParams.get("limit") || "50", 10),
+      500
+    );
     const offset = parseInt(url.searchParams.get("offset") || "0", 10);
-    const sortField = (url.searchParams.get("sort") || "created_at") as SortField;
+    const sortField = (url.searchParams.get("sort") ||
+      "created_at") as SortField;
     const sortOrder = (url.searchParams.get("order") || "desc") as SortOrder;
     const search = url.searchParams.get("search")?.toLowerCase() || "";
 
     // Validate sort field
-    const validSortFields: SortField[] = ["name", "created_at", "popularity", "tempo", "energy", "danceability"];
-    const actualSortField = validSortFields.includes(sortField) ? sortField : "created_at";
+    const validSortFields: SortField[] = [
+      "name",
+      "created_at",
+      "popularity",
+      "tempo",
+      "energy",
+      "danceability",
+    ];
+    const actualSortField = validSortFields.includes(sortField)
+      ? sortField
+      : "created_at";
     const actualSortOrder = sortOrder === "asc" ? "ASC" : "DESC";
 
     // Build query
@@ -121,7 +181,9 @@ export const GET: APIRoute = async ({ url }) => {
       countParams.push(`%${search}%`, `%${search}%`);
     }
 
-    const totalResult = db.prepare(countQuery).get(...countParams) as { count: number };
+    const totalResult = db.prepare(countQuery).get(...countParams) as {
+      count: number;
+    };
     const total = totalResult.count;
 
     // Transform tracks for response
@@ -143,9 +205,10 @@ export const GET: APIRoute = async ({ url }) => {
         gallery: {
           totalTracks,
           tracksWithAudioFeatures: tracksWithAudio,
-          coveragePercentage: totalTracks > 0 
-            ? ((tracksWithAudio / totalTracks) * 100).toFixed(1) 
-            : "0",
+          coveragePercentage:
+            totalTracks > 0
+              ? ((tracksWithAudio / totalTracks) * 100).toFixed(1)
+              : "0",
         },
       }),
       {
@@ -174,4 +237,3 @@ export const GET: APIRoute = async ({ url }) => {
     );
   }
 };
-

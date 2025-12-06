@@ -4,11 +4,32 @@ A modern web application to organize your Spotify music collection by genre, moo
 
 ## 🚀 Tech Stack
 
-- **[Astro](https://astro.build/)** - Modern web framework
+- **[Astro](https://astro.build/)** - Modern web framework with SSR
 - **[React 19](https://react.dev/)** - UI components
 - **[Tailwind CSS v4](https://tailwindcss.com/)** - Styling
 - **[shadcn/ui](https://ui.shadcn.com/)** - UI component library
 - **[TypeScript](https://www.typescriptlang.org/)** - Type safety
+- **[SQLite](https://www.sqlite.org/)** - Database (better-sqlite3)
+- **[SoundCharts API](https://soundcharts.com/)** - Audio features data
+
+## 🏗️ Architecture
+
+### Gallery Concept
+
+This application works as a **public music gallery**:
+
+- **Admin** (gallery owner) syncs their Spotify tracks → becomes the public catalog
+- **Visitors** can browse the gallery without authentication
+- Audio features (tempo, energy, danceability, etc.) are fetched from SoundCharts API
+
+### User Roles
+
+| Role        | Access   | Permissions                                        |
+| ----------- | -------- | -------------------------------------------------- |
+| **Admin**   | `/admin` | Sync tracks, manage catalog, view stats            |
+| **Visitor** | `/`      | Browse gallery, filter tracks, view audio features |
+
+> **Note**: Regular users don't need to log in. Only the admin authenticates via Spotify OAuth to sync tracks.
 
 ## 📦 Project Structure
 
@@ -18,10 +39,17 @@ A modern web application to organize your Spotify music collection by genre, moo
 │   ├── components/     # React & Astro components
 │   │   └── ui/        # shadcn/ui components
 │   ├── config/        # Configuration files
+│   ├── hooks/         # React hooks (useGalleryLoader, etc.)
 │   ├── layouts/       # Page layouts
 │   ├── lib/           # Utility functions
+│   │   └── db/        # Database repositories
 │   ├── pages/         # Astro pages
-│   └── styles/        # Global styles
+│   │   └── api/       # API endpoints
+│   │       └── gallery/  # Public gallery API
+│   ├── stores/        # Zustand stores
+│   ├── styles/        # Global styles
+│   └── types/         # TypeScript types
+├── data/              # SQLite database
 ├── web-legacy/        # Original application (preserved)
 └── public/            # Static assets
 ```
@@ -42,8 +70,9 @@ pnpm install
 # Create .env file from example
 cp .env.example .env
 
-# Edit .env and add your Spotify Client ID
-# Get your client ID from: https://developer.spotify.com/dashboard
+# Edit .env and add your credentials:
+# - Spotify Client ID (required for admin sync)
+# - SoundCharts API credentials (required for audio features)
 
 # Start development server
 pnpm dev
@@ -67,61 +96,125 @@ pnpm dlx shadcn@latest add dialog
 
 ## 🎨 Features
 
-- Organize music by genre, mood, decade, and more
-- Create custom playlists based on track attributes
-- Visualize your music collection with interactive plots
-- Filter tracks by energy, danceability, tempo, and other audio features
-- Save organized playlists directly to Spotify
+### ✅ Implemented
 
-## 📝 Migration Status
+- **Public Gallery**: Browse tracks without authentication
+- **Audio Features**: Tempo, energy, danceability, valence, and more
+- **Genre Classification**: Automatic genre detection from SoundCharts
+- **Track Filtering**: Filter by various audio attributes
+- **Admin Dashboard**: Sync tracks and view statistics
+- **Incremental Sync**: Only fetches new tracks from Spotify
+- **Role-Based Access**: Admin-only endpoints protected
 
-### Phase 1: ✅ Complete
+### 🔜 Planned
 
-- [x] Move legacy application to `web-legacy/`
-- [x] Initialize Astro project with Tailwind CSS v4
-- [x] Configure React integration
-- [x] Install and configure shadcn/ui
-- [x] Verify build process
+- Personal playlists for visitors (requires login)
+- Favorites system
+- Playlist sharing
+- Export/import functionality
 
-### Phase 2: 🚧 Pending
+## 🔌 API Endpoints
 
-- [ ] Migrate HTML structure to Astro
-- [ ] Port JavaScript logic to TypeScript
-- [ ] Implement Spotify API integration
-- [ ] Maintain feature parity with legacy app
+### Public Endpoints (No Auth Required)
 
-### Phase 3: 🚧 Pending
+| Endpoint              | Method | Description                    |
+| --------------------- | ------ | ------------------------------ |
+| `/api/gallery/tracks` | GET    | Get gallery tracks (paginated) |
+| `/api/gallery/stats`  | GET    | Get gallery statistics         |
 
-- [ ] Create modular React components
-- [ ] Implement shadcn/ui components
-- [ ] Apply modern Spotify-inspired design
-- [ ] Add glassmorphism effects
-- [ ] Optimize and refactor codebase
+### Admin Endpoints (Auth Required)
 
-## 🔐 Spotify Configuration
+| Endpoint            | Method | Description                 |
+| ------------------- | ------ | --------------------------- |
+| `/api/sync`         | POST   | Sync admin's Spotify tracks |
+| `/api/stats`        | GET    | Get detailed database stats |
+| `/api/migrate-isrc` | POST   | Migrate ISRC codes          |
+| `/api/clear-failed` | POST   | Clear failed requests       |
 
-The app uses the Spotify Web API. You'll need to:
+## 🗄️ Database
 
-1. **Create a Spotify Developer account** at [developer.spotify.com](https://developer.spotify.com/dashboard)
-2. **Register your application** and get your Client ID
-3. **Add redirect URIs** in your Spotify app settings:
-   - For local development: `http://localhost:4321/`
-   - For production: Your deployed URL
-4. **Configure environment variables**:
-   - Copy `.env.example` to `.env`
-   - Add your `PUBLIC_SPOTIFY_CLIENT_ID`
-   - Update redirect URIs if needed
+The application uses SQLite for persistent storage:
 
-### Environment Variables
+- **Location**: `data/spotify-cache.db`
+- **Schema Version**: 4
+- **Tables**: `users`, `tracks`, `user_tracks`, `failed_requests`, `sync_history`
+
+### Key Tables
+
+- **tracks**: Immutable track data (Spotify + SoundCharts)
+- **users**: User information with role (`admin` or `regular`)
+- **user_tracks**: User-track relationships (admin's library)
+- **failed_requests**: Retry queue for failed SoundCharts requests
+
+## 🔐 Authentication
+
+### Admin Authentication Flow
+
+1. Admin visits `/admin`
+2. Clicks "Sync" → redirects to Spotify OAuth
+3. After auth, first user becomes admin automatically
+4. Subsequent logins verify admin role
+
+### Protected Routes
+
+All admin endpoints verify:
+
+1. Valid Spotify access token
+2. User has `admin` role in database
+
+```typescript
+// Example: Admin verification in API endpoint
+const authResult = await verifyAdmin(request);
+if (!authResult.success || !authResult.isAdmin) {
+  return createAuthErrorResponse(authResult);
+}
+```
+
+## 🔧 Environment Variables
 
 ```bash
 # .env file
 PUBLIC_SPOTIFY_CLIENT_ID=your_client_id_here
 PUBLIC_SPOTIFY_REDIRECT_URI_LOCAL=http://localhost:4321/
 PUBLIC_SPOTIFY_REDIRECT_URI_REMOTE=https://your-domain.com/
+
+# SoundCharts API (required for audio features)
+SOUNDCHARTS_APP_ID=your_app_id
+SOUNDCHARTS_API_KEY=your_api_key
 ```
 
-**Note**: In Astro, environment variables prefixed with `PUBLIC_` are exposed to the client-side code.
+**Note**: In Astro, variables prefixed with `PUBLIC_` are exposed to client-side code.
+
+## 📊 Current Status
+
+| Metric                  | Value  |
+| ----------------------- | ------ |
+| Total Tracks            | 2,872  |
+| Audio Features Coverage | 100%   |
+| Database Size           | ~14 MB |
+| Schema Version          | 4      |
+
+## 📝 Migration Status
+
+### ✅ Completed
+
+- [x] Move legacy application to `web-legacy/`
+- [x] Initialize Astro project with Tailwind CSS v4
+- [x] Configure React 19 integration
+- [x] Install and configure shadcn/ui
+- [x] Implement Spotify OAuth (PKCE Flow)
+- [x] Create SQLite database with repositories
+- [x] Implement SoundCharts integration
+- [x] Create admin dashboard
+- [x] Implement role-based access control
+- [x] Create public gallery endpoints
+- [x] Build gallery viewer component
+
+### 🚧 In Progress
+
+- [ ] Improve gallery UI/UX
+- [ ] Add more filtering options
+- [ ] Implement track visualization plots
 
 ## 📄 License
 

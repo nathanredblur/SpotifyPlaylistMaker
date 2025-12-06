@@ -1,198 +1,194 @@
-# Sistema de Caché con Zustand e IndexedDB
+# Cache System - Server-Side SQLite
 
-## Descripción General
+## Overview
 
-El sistema de caché implementado en esta aplicación utiliza **Zustand** para la gestión de estado y **IndexedDB** para la persistencia de datos. Esto permite reducir significativamente el número de peticiones a la API de Spotify al almacenar en caché los datos de audio features, artistas y álbumes.
+The application uses **SQLite** for server-side persistent caching. All track data and audio features are stored in a local database file, eliminating the need for repeated API calls.
 
-## Tecnologías Utilizadas
+## Architecture
 
-- **Zustand**: Librería de gestión de estado ligera y moderna para React
-- **idb-keyval**: Wrapper simple para IndexedDB que proporciona una API similar a localStorage
-- **Zustand Persist Middleware**: Middleware que permite persistir el estado de Zustand en diferentes tipos de storage
-
-## Arquitectura
-
-### Store Principal: `useSpotifyCache`
-
-El store se encuentra en `src/stores/useSpotifyCache.ts` y gestiona tres tipos de datos:
-
-1. **Audio Features**: Características de audio de las canciones (tempo, energía, etc.)
-2. **Artists**: Información de artistas (nombre, géneros)
-3. **Albums**: Información de álbumes (nombre, fecha de lanzamiento)
-
-### Estructura de Datos
-
-Cada entrada en el caché tiene la siguiente estructura:
-
-```typescript
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-}
+```
+┌─────────────────────────────────────────────┐
+│              Client (Browser)               │
+│  - Fetches tracks from /api/gallery/tracks  │
+│  - No local caching needed                  │
+└──────────────────┬──────────────────────────┘
+                   │ HTTP GET
+                   ▼
+┌─────────────────────────────────────────────┐
+│           Astro API Endpoints               │
+│  - /api/gallery/tracks (public)             │
+│  - /api/sync (admin)                        │
+└──────────────────┬──────────────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────────────┐
+│           SQLite Database                   │
+│  - tracks (immutable data)                  │
+│  - users (admin info)                       │
+│  - failed_requests (retry queue)            │
+│  - sync_history (audit log)                 │
+└─────────────────────────────────────────────┘
 ```
 
-El `timestamp` se utiliza para implementar un sistema de **TTL (Time To Live)** de 7 días.
+## Key Principles
 
-## Funcionalidades Principales
+### 1. Immutable Track Data
 
-### 1. Almacenamiento en Caché
+Track data (audio features, metadata) **never changes**:
+- Fetched once from SoundCharts API
+- Stored permanently in SQLite
+- No expiration, no cache invalidation
 
-Cuando se realiza una petición a la API de Spotify:
+### 2. Server-Side Only
 
-1. Se verifica si los datos ya existen en el caché
-2. Si existen y no han expirado, se devuelven inmediatamente
-3. Si no existen o han expirado, se solicitan a la API
-4. Los nuevos datos se almacenan en el caché para futuras consultas
+All caching happens on the server:
+- No IndexedDB or localStorage for track data
+- Simpler client code
+- Works with SSR
 
-### 2. Operaciones por Lotes
+### 3. Incremental Sync
 
-El sistema soporta operaciones por lotes para optimizar las peticiones:
+Admin sync only fetches new tracks:
+- Compares with last sync timestamp
+- Only requests tracks added since last sync
+- Reduces API calls significantly
 
-```typescript
-// Ejemplo: Obtener audio features de múltiples tracks
-const { cached, missing } = cache.getMultipleAudioFeatures(trackIds);
-// cached: tracks que ya están en caché
-// missing: tracks que necesitan ser solicitados a la API
+## Database Location
+
+```
+data/spotify-cache.db      # Main database file
+data/spotify-cache.db-shm  # Shared memory file
+data/spotify-cache.db-wal  # Write-ahead log
 ```
 
-### 3. Estadísticas de Caché
+## Tables
 
-El sistema mantiene estadísticas en tiempo real:
+### `tracks` - Track Data Cache
 
-- **Hit Rate**: Porcentaje de peticiones servidas desde el caché
-- **Cache Hits**: Número de peticiones exitosas al caché
-- **Total Requests**: Total de peticiones realizadas
+Stores all track information including audio features:
 
-### 4. Gestión de Caché
-
-El sistema proporciona métodos para:
-
-- `clearCache()`: Limpiar todo el caché
-- `clearExpiredEntries()`: Eliminar solo las entradas expiradas
-- `getStats()`: Obtener estadísticas del caché
-
-## Integración con la API de Spotify
-
-En `src/lib/spotify-api.ts`, los métodos de la API han sido modificados para usar el caché:
-
-```typescript
-async getAudioFeatures(trackIds: string[]): Promise<AudioFeaturesResponse> {
-  const cache = useSpotifyCache.getState();
-  
-  // 1. Verificar caché
-  const { cached, missing } = cache.getMultipleAudioFeatures(trackIds);
-  
-  // 2. Si todo está en caché, retornar inmediatamente
-  if (missing.length === 0) {
-    return { audio_features: cached };
-  }
-  
-  // 3. Solicitar solo los datos faltantes
-  const response = await this.request<AudioFeaturesResponse>("/audio-features", {
-    params: { ids: missing.join(",") },
-  });
-  
-  // 4. Guardar en caché
-  cache.setMultipleAudioFeatures(response.audio_features);
-  
-  // 5. Combinar datos cacheados y nuevos
-  return { audio_features: [...cached, ...response.audio_features] };
-}
+```sql
+CREATE TABLE tracks (
+  spotify_id TEXT PRIMARY KEY,
+  soundcharts_uuid TEXT,
+  spotify_data TEXT NOT NULL,      -- JSON: Spotify track object
+  soundcharts_data TEXT,           -- JSON: SoundCharts response
+  name TEXT NOT NULL,
+  tempo REAL,
+  energy REAL,
+  danceability REAL,
+  -- ... other audio features
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
-## Visualización en la UI
+### `failed_requests` - Retry Queue
 
-Las estadísticas del caché se muestran en la pantalla de carga (`LoadingScreen.tsx`):
+Tracks failed SoundCharts API calls:
 
-- **Hit Rate**: Porcentaje de eficiencia del caché
-- **Cached Items**: Número total de elementos servidos desde el caché
-
-Esto proporciona feedback visual al usuario sobre el rendimiento del sistema.
-
-## Beneficios
-
-### 1. Reducción de Peticiones a la API
-
-- **Primera carga**: Todas las peticiones van a la API de Spotify
-- **Cargas subsecuentes**: Solo se solicitan datos nuevos o expirados
-- **Resultado**: Reducción del 70-90% en peticiones repetidas
-
-### 2. Mejor Experiencia de Usuario
-
-- Tiempos de carga significativamente más rápidos
-- Menor consumo de datos
-- Funcionamiento más fluido de la aplicación
-
-### 3. Resiliencia ante Rate Limiting
-
-- Menos probabilidad de alcanzar los límites de la API
-- Mejor manejo de errores 429 (Too Many Requests)
-
-### 4. Persistencia entre Sesiones
-
-- Los datos se mantienen incluso después de cerrar el navegador
-- No es necesario recargar todos los datos en cada visita
-
-## Configuración
-
-### TTL (Time To Live)
-
-El tiempo de vida del caché está configurado en 7 días:
-
-```typescript
-const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 días en milisegundos
+```sql
+CREATE TABLE failed_requests (
+  spotify_id TEXT PRIMARY KEY,
+  error_code INTEGER,
+  error_message TEXT,
+  attempt_count INTEGER DEFAULT 1,
+  status TEXT DEFAULT 'pending'
+);
 ```
 
-Este valor puede ajustarse según las necesidades de la aplicación.
+### `sync_history` - Audit Log
 
-### Nombre del Storage
+Records all sync operations:
 
-El caché se almacena en IndexedDB con el nombre:
-
-```typescript
-name: "spotify-cache-storage"
+```sql
+CREATE TABLE sync_history (
+  id INTEGER PRIMARY KEY,
+  total_tracks INTEGER,
+  new_tracks INTEGER,
+  soundcharts_fetched INTEGER,
+  failed_tracks INTEGER,
+  started_at TEXT,
+  completed_at TEXT
+);
 ```
 
-## Consideraciones de Desarrollo
+## Benefits
 
-### 1. Limpieza del Caché
+### 1. Performance
+- **First load**: ~30-60 seconds (fetches all tracks)
+- **Subsequent loads**: ~1-2 seconds (reads from SQLite)
+- **Incremental sync**: ~5-10 seconds (only new tracks)
 
-Para limpiar el caché durante el desarrollo:
+### 2. Reliability
+- Data persists across server restarts
+- No client-side storage limits
+- Automatic retry for failed requests
 
-```javascript
-// En la consola del navegador
-useSpotifyCache.getState().clearCache();
+### 3. Simplicity
+- No cache invalidation logic
+- No TTL management
+- No client-side sync issues
+
+## API Endpoints
+
+### Public (No Auth)
+
+```
+GET /api/gallery/tracks
+  - Returns all tracks from database
+  - Supports pagination, sorting, search
+  - No API calls made
+
+GET /api/gallery/stats
+  - Returns gallery statistics
+  - Reads from database
 ```
 
-### 2. Inspección del Caché
+### Admin (Auth Required)
 
-Para ver el contenido del caché:
+```
+POST /api/sync
+  - Fetches new tracks from Spotify
+  - Saves to database
+  - Fetches audio features from SoundCharts
+```
 
-1. Abrir DevTools
-2. Ir a la pestaña "Application"
-3. Expandir "IndexedDB"
-4. Buscar "keyval-store" > "keyval"
-5. Buscar la entrada "spotify-cache-storage"
+## Comparison with Previous System
 
-### 3. Debugging
+| Feature | Old (IndexedDB) | New (SQLite) |
+|---------|-----------------|--------------|
+| Location | Client browser | Server |
+| Persistence | Per browser | Global |
+| SSR Support | ❌ No | ✅ Yes |
+| Cache Sharing | ❌ No | ✅ Yes |
+| Size Limits | ~50MB | Unlimited |
+| Complexity | High | Low |
 
-El sistema incluye logs en consola:
+## Debugging
 
-- `✅ Cache hit: X items from cache` - Datos servidos desde el caché
-- `🔄 Fetching X items (Y from cache)` - Petición a la API con datos parciales del caché
+### Check Database Contents
 
-## Mejoras Futuras
+```bash
+sqlite3 data/spotify-cache.db
 
-1. **Compresión de Datos**: Implementar compresión para reducir el tamaño del storage
-2. **Cache Warming**: Pre-cargar datos frecuentemente accedidos
-3. **Selective Invalidation**: Invalidar solo partes específicas del caché
-4. **Cache Versioning**: Sistema de versiones para manejar cambios en la estructura de datos
-5. **Background Sync**: Actualizar el caché en segundo plano cuando hay conexión
+# View track count
+SELECT COUNT(*) FROM tracks;
 
-## Referencias
+# Check audio features coverage
+SELECT COUNT(*) FROM tracks WHERE soundcharts_data IS NOT NULL;
 
-- [Zustand Documentation](https://zustand.docs.pmnd.rs/)
-- [Zustand Persist Middleware](https://zustand.docs.pmnd.rs/integrations/persisting-store-data)
-- [idb-keyval](https://github.com/jakearchibald/idb-keyval)
-- [IndexedDB API](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
+# View recent syncs
+SELECT * FROM sync_history ORDER BY id DESC LIMIT 5;
+```
 
+### Clear Database (Development)
+
+```bash
+rm data/spotify-cache.db*
+# Restart server to recreate
+```
+
+## References
+
+- [better-sqlite3 Documentation](https://github.com/WiseLibs/better-sqlite3)
+- [SQLite Documentation](https://www.sqlite.org/docs.html)

@@ -1,29 +1,29 @@
 ---
-import '@/styles/global.css';
+import "@/styles/global.css";
 
 interface Props {
   title?: string;
   description?: string;
 }
 
-const { 
-  title = 'Organize Your Music',
-  description = 'Organize your Spotify music collection'
+const {
+  title = "MELO - Music Gallery",
+  description = "Discover the soundtrack of someone's life - A music gallery and taste analyzer",
 } = Astro.props;
 ---
 
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" class="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#0a0a0a" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
   </head>
-  <body class="min-h-screen bg-background text-foreground">
+  <body>
     <slot />
   </body>
 </html>
-

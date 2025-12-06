@@ -1,11 +1,10 @@
 /**
  * Unified App Component
- * Shows public gallery - no authentication needed for viewing
+ * Shows the MELO music gallery
  */
 
-import { GalleryViewer } from "./GalleryViewer";
+import { MeloApp } from "./melo";
 
 export function UnifiedApp() {
-  // Simply render the gallery viewer - no auth needed
-  return <GalleryViewer />;
+  return <MeloApp />;
 }

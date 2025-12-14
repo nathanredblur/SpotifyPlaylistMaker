@@ -12,6 +12,12 @@ export default defineConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      watch: {
+        // Ignore SQLite journal files to prevent unnecessary HMR refreshes
+        ignored: ["**/*.db-shm", "**/*.db-wal", "**/*.db-journal"],
+      },
+    },
   },
   server: {
     host: "127.0.0.1", // Explicitly set the host to 127.0.0.1

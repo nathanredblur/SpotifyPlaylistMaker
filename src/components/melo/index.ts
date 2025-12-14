@@ -16,6 +16,7 @@ export { NavItem } from "./NavItem";
 export { NavAccordion } from "./NavAccordion";
 export { TrackList } from "./TrackList";
 export { TrackRow } from "./TrackRow";
+export { SpotifyEmbedPlayer } from "./SpotifyEmbedPlayer";
 
 // Widgets
 export { StatsCard } from "./widgets/StatsCard";

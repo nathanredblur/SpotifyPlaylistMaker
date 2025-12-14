@@ -39,6 +39,7 @@ interface FooterProps {
   onOpenInSpotify: () => void;
   isSpotifyConnected?: boolean;
   spotifyError?: string | null;
+  noPreviewAvailable?: boolean;
   className?: string;
 }
 
@@ -66,6 +67,7 @@ export function Footer({
   onOpenInSpotify,
   isSpotifyConnected,
   spotifyError,
+  noPreviewAvailable,
   className,
 }: FooterProps) {
   const [isMuted, setIsMuted] = useState(false);
@@ -124,6 +126,11 @@ export function Footer({
             <p className="text-xs text-muted-foreground truncate">
               {currentTrack.details.artists?.map((a) => a.name).join(", ")}
             </p>
+            {noPreviewAvailable && !isSpotifyConnected && (
+              <p className="text-xs text-orange-400 mt-0.5">
+                No preview available
+              </p>
+            )}
           </div>
         )}
       </div>

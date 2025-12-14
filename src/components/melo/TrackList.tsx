@@ -1,26 +1,58 @@
 /**
  * Track List Component
  * Main track list with header and rows
+ *
+ * PERFORMANCE: Uses virtualization to only render visible rows
+ * @see https://tanstack.com/virtual/latest
  */
 
-import { useMemo, type ReactNode } from "react";
+import { useRef, useMemo, useCallback, type ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Clock, Music } from "lucide-react";
 import { TrackRow } from "./TrackRow";
 import { cn } from "@/lib/utils";
 import type { Track } from "@/types/spotify";
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const ROW_HEIGHT = 56; // Height of each track row in pixels
+const OVERSCAN = 5; // Number of extra rows to render above/below viewport
+
+// ============================================================================
+// Types
+// ============================================================================
 
 interface TrackListProps {
   tracks: Track[];
   currentTrackId: string | null;
   isPlaying: boolean;
   selectedTrackIds: Set<string>;
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (trackId: string) => void;
   onSelectTrack: (trackId: string) => void;
-  onOpenInSpotify: (track: Track) => void;
+  onOpenInSpotify: (trackId: string) => void;
   className?: string;
   /** Optional controls to render in the header (sort, filter) */
   controls?: ReactNode;
 }
+
+// ============================================================================
+// Helper Functions (outside component)
+// ============================================================================
+
+function formatTotalDuration(totalMs: number): string {
+  const hours = Math.floor(totalMs / (1000 * 60 * 60));
+  const minutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 0) {
+    return `${hours} hr ${minutes} min`;
+  }
+  return `${minutes} min`;
+}
+
+// ============================================================================
+// Component
+// ============================================================================
 
 export function TrackList({
   tracks,
@@ -33,20 +65,49 @@ export function TrackList({
   className,
   controls,
 }: TrackListProps) {
-  // Calculate total duration
+  // Ref for the scrollable container
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // Calculate total duration - memoized
   const totalDuration = useMemo(() => {
     const totalMs = tracks.reduce(
       (sum, track) => sum + (track.details.duration_ms || 0),
       0
     );
-    const hours = Math.floor(totalMs / (1000 * 60 * 60));
-    const minutes = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
-    if (hours > 0) {
-      return `${hours} hr ${minutes} min`;
-    }
-    return `${minutes} min`;
+    return formatTotalDuration(totalMs);
   }, [tracks]);
 
+  // Create virtualizer for efficient list rendering
+  const virtualizer = useVirtualizer({
+    count: tracks.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: OVERSCAN,
+  });
+
+  // Stable callback handlers - these won't change between renders
+  const handlePlay = useCallback(
+    (trackId: string) => {
+      onPlayTrack(trackId);
+    },
+    [onPlayTrack]
+  );
+
+  const handleSelect = useCallback(
+    (trackId: string) => {
+      onSelectTrack(trackId);
+    },
+    [onSelectTrack]
+  );
+
+  const handleDoubleClick = useCallback(
+    (trackId: string) => {
+      onOpenInSpotify(trackId);
+    },
+    [onOpenInSpotify]
+  );
+
+  // Empty state
   if (tracks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -60,6 +121,8 @@ export function TrackList({
       </div>
     );
   }
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -92,21 +155,48 @@ export function TrackList({
         )}
       </div>
 
-      {/* Track Rows */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="py-2">
-          {tracks.map((track, index) => (
-            <TrackRow
-              key={track.id}
-              track={track}
-              index={index}
-              isPlaying={currentTrackId === track.id && isPlaying}
-              isSelected={selectedTrackIds.has(track.id)}
-              onPlay={() => onPlayTrack(track)}
-              onSelect={() => onSelectTrack(track.id)}
-              onDoubleClick={() => onOpenInSpotify(track)}
-            />
-          ))}
+      {/* Virtualized Track Rows */}
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-y-auto"
+        style={{ contain: "strict" }} // CSS containment for better performance
+      >
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualItems.map((virtualRow) => {
+            const track = tracks[virtualRow.index];
+            const isRowPlaying = currentTrackId === track.id && isPlaying;
+            const isRowSelected = selectedTrackIds.has(track.id);
+
+            return (
+              <div
+                key={track.id}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <TrackRow
+                  track={track}
+                  index={virtualRow.index}
+                  isPlaying={isRowPlaying}
+                  isSelected={isRowSelected}
+                  onPlay={handlePlay}
+                  onSelect={handleSelect}
+                  onDoubleClick={handleDoubleClick}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

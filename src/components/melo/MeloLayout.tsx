@@ -209,21 +209,30 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
     return result;
   }, [tracks, bins, activeFilter, searchQuery, advancedFilters, sortConfig]);
 
-  const handlePlayTrack = useCallback(
-    async (track: Track) => {
+  // Create a Map for O(1) track lookup by ID
+  const tracksById = useMemo(() => {
+    const map = new Map<string, Track>();
+    for (const track of filteredTracks) {
+      map.set(track.id, track);
+    }
+    return map;
+  }, [filteredTracks]);
+
+  const handlePlayTrackById = useCallback(
+    async (trackId: string) => {
+      const track = tracksById.get(trackId);
+      if (!track) return;
+
       // Check if track is playable
       if (track.details.is_playable === false) {
-        console.warn("Track is not playable:", track.details.name);
         // Skip to next playable track
-        const currentIndex = filteredTracks.findIndex((t) => t.id === track.id);
+        const currentIndex = filteredTracks.findIndex((t) => t.id === trackId);
         if (currentIndex !== -1) {
-          // Find next playable track
           for (let i = 1; i < filteredTracks.length; i++) {
             const nextIndex = (currentIndex + i) % filteredTracks.length;
             const nextTrack = filteredTracks[nextIndex];
             if (nextTrack.details.is_playable !== false) {
-              // Recursively try to play the next track
-              handlePlayTrack(nextTrack);
+              handlePlayTrackById(nextTrack.id);
               return;
             }
           }
@@ -233,24 +242,22 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
 
       // Use Spotify Web Playback SDK if available
       if (useSpotifyPlayback && spotifyPlayer) {
-        const spotifyUri = `spotify:track:${track.id}`;
+        const spotifyUri = `spotify:track:${trackId}`;
 
-        if (spotifyPlayer.currentTrack?.id === track.id) {
-          // Toggle play/pause for current track
+        if (spotifyPlayer.currentTrack?.id === trackId) {
           await spotifyPlayer.togglePlay();
         } else {
-          // Play new track
           setCurrentTrack(track);
           await spotifyPlayer.play(spotifyUri);
         }
         return;
       }
 
-      // Fallback: Use Spotify Embed Player (shows 30-second preview)
+      // Fallback: Use Spotify Embed Player
       setCurrentTrack(track);
       setIsPlaying(true);
     },
-    [useSpotifyPlayback, spotifyPlayer, filteredTracks]
+    [useSpotifyPlayback, spotifyPlayer, filteredTracks, tracksById]
   );
 
   const handlePlayPause = useCallback(async () => {
@@ -258,27 +265,24 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
       if (spotifyPlayer.isActive) {
         await spotifyPlayer.togglePlay();
       } else if (filteredTracks.length > 0) {
-        handlePlayTrack(filteredTracks[0]);
+        handlePlayTrackById(filteredTracks[0].id);
       }
       return;
     }
 
     // Fallback: Use Spotify Embed
     if (!currentTrack && filteredTracks.length > 0) {
-      handlePlayTrack(filteredTracks[0]);
+      handlePlayTrackById(filteredTracks[0].id);
     }
-    // Note: Embed controls playback itself via its built-in controls
   }, [
     currentTrack,
-    isPlaying,
     filteredTracks,
-    handlePlayTrack,
+    handlePlayTrackById,
     useSpotifyPlayback,
     spotifyPlayer,
   ]);
 
   const handlePrevious = useCallback(async () => {
-    // Always use our filtered track list for navigation
     if (!currentTrack || filteredTracks.length === 0) return;
 
     const currentIndex = filteredTracks.findIndex(
@@ -286,17 +290,10 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
     );
     const prevIndex =
       currentIndex > 0 ? currentIndex - 1 : filteredTracks.length - 1;
-    handlePlayTrack(filteredTracks[prevIndex]);
-  }, [
-    currentTrack,
-    filteredTracks,
-    handlePlayTrack,
-    useSpotifyPlayback,
-    spotifyPlayer,
-  ]);
+    handlePlayTrackById(filteredTracks[prevIndex].id);
+  }, [currentTrack, filteredTracks, handlePlayTrackById]);
 
   const handleNext = useCallback(async () => {
-    // Always use our filtered track list for navigation
     if (!currentTrack || filteredTracks.length === 0) return;
 
     const currentIndex = filteredTracks.findIndex(
@@ -311,15 +308,8 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
         currentIndex < filteredTracks.length - 1 ? currentIndex + 1 : 0;
     }
 
-    handlePlayTrack(filteredTracks[nextIndex]);
-  }, [
-    currentTrack,
-    filteredTracks,
-    isShuffled,
-    handlePlayTrack,
-    useSpotifyPlayback,
-    spotifyPlayer,
-  ]);
+    handlePlayTrackById(filteredTracks[nextIndex].id);
+  }, [currentTrack, filteredTracks, isShuffled, handlePlayTrackById]);
 
   const handleSeek = useCallback(
     async (time: number) => {
@@ -356,9 +346,8 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
     });
   }, []);
 
-  const handleOpenInSpotify = useCallback((track: Track) => {
-    const spotifyUrl = `https://open.spotify.com/track/${track.id}`;
-    window.open(spotifyUrl, "_blank");
+  const handleOpenInSpotify = useCallback((trackId: string) => {
+    window.open(`https://open.spotify.com/track/${trackId}`, "_blank");
   }, []);
 
   const handleExport = useCallback(() => {
@@ -392,7 +381,7 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
 
   const handleOpenCurrentInSpotify = useCallback(() => {
     if (currentTrack) {
-      handleOpenInSpotify(currentTrack);
+      handleOpenInSpotify(currentTrack.id);
     }
   }, [currentTrack, handleOpenInSpotify]);
 
@@ -473,7 +462,7 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
             currentTrackId={currentTrack?.id || null}
             isPlaying={isPlaying}
             selectedTrackIds={selectedTrackIds}
-            onPlayTrack={handlePlayTrack}
+            onPlayTrack={handlePlayTrackById}
             onSelectTrack={handleSelectTrack}
             onOpenInSpotify={handleOpenInSpotify}
             controls={

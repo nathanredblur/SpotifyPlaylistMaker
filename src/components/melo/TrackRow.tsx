@@ -1,22 +1,35 @@
 /**
  * Track Row Component
  * Individual track row in the track list
+ *
+ * PERFORMANCE: This component is memoized and should only re-render when:
+ * - track data changes
+ * - isPlaying state changes
+ * - isSelected state changes
  */
 
+import { memo } from "react";
 import { Play, Pause, Check, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Track } from "@/types/spotify";
+
+// ============================================================================
+// Types
+// ============================================================================
 
 interface TrackRowProps {
   track: Track;
   index: number;
   isPlaying: boolean;
   isSelected: boolean;
-  onPlay: () => void;
-  onSelect: () => void;
-  onDoubleClick: () => void;
-  className?: string;
+  onPlay: (trackId: string) => void;
+  onSelect: (trackId: string) => void;
+  onDoubleClick: (trackId: string) => void;
 }
+
+// ============================================================================
+// Helper Functions (outside component to avoid recreation)
+// ============================================================================
 
 function formatDuration(ms: number): string {
   const mins = Math.floor(ms / 60000);
@@ -24,7 +37,11 @@ function formatDuration(ms: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function TrackRow({
+// ============================================================================
+// Component
+// ============================================================================
+
+function TrackRowComponent({
   track,
   index,
   isPlaying,
@@ -32,15 +49,15 @@ export function TrackRow({
   onPlay,
   onSelect,
   onDoubleClick,
-  className,
 }: TrackRowProps) {
+  const { details } = track;
   const albumArt =
-    track.details.album?.images?.[2]?.url ||
-    track.details.album?.images?.[1]?.url ||
-    track.details.album?.images?.[0]?.url;
+    details.album?.images?.[2]?.url ||
+    details.album?.images?.[1]?.url ||
+    details.album?.images?.[0]?.url;
 
   // Check if track is playable (default to true if undefined)
-  const isPlayable = track.details.is_playable !== false;
+  const isPlayable = details.is_playable !== false;
 
   return (
     <div
@@ -50,10 +67,9 @@ export function TrackRow({
         "hover:bg-accent-muted",
         isPlaying && "bg-accent-muted",
         isSelected && "bg-accent/10",
-        !isPlayable && "opacity-50",
-        className
+        !isPlayable && "opacity-50"
       )}
-      onDoubleClick={onDoubleClick}
+      onDoubleClick={() => onDoubleClick(track.id)}
       title={
         !isPlayable ? "This track is not available for playback" : undefined
       }
@@ -68,7 +84,7 @@ export function TrackRow({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onPlay();
+              onPlay(track.id);
             }}
             className={cn(
               "w-8 h-8 flex items-center justify-center rounded-full",
@@ -94,7 +110,7 @@ export function TrackRow({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onSelect();
+          onSelect(track.id);
         }}
         className={cn(
           "w-5 h-5 rounded border flex items-center justify-center",
@@ -112,7 +128,7 @@ export function TrackRow({
         {albumArt ? (
           <img
             src={albumArt}
-            alt={track.details.album?.name}
+            alt={details.album?.name}
             className="w-full h-full object-cover"
             loading="lazy"
           />
@@ -129,31 +145,54 @@ export function TrackRow({
             isPlaying ? "text-accent" : "text-foreground"
           )}
         >
-          {track.details.name}
-          {track.details.explicit && (
+          {details.name}
+          {details.explicit && (
             <span className="ml-2 px-1 py-0.5 text-[10px] bg-muted text-muted-foreground rounded">
               E
             </span>
           )}
         </p>
         <p className="text-xs text-muted-foreground truncate">
-          {track.details.artists?.map((a) => a.name).join(", ")}
+          {details.artists?.map((a) => a.name).join(", ")}
         </p>
       </div>
 
       {/* Album - only show on very wide screens */}
       <div className="w-40 hidden 2xl:block">
         <p className="text-sm text-muted-foreground truncate">
-          {track.details.album?.name}
+          {details.album?.name}
         </p>
       </div>
 
       {/* Duration */}
       <div className="w-12 text-right">
         <span className="text-sm text-muted-foreground">
-          {formatDuration(track.details.duration_ms || 0)}
+          {formatDuration(details.duration_ms || 0)}
         </span>
       </div>
     </div>
   );
 }
+
+// ============================================================================
+// Memoized Export
+// ============================================================================
+
+/**
+ * Custom comparison function for React.memo
+ * Only re-render if these specific props change
+ */
+function arePropsEqual(prev: TrackRowProps, next: TrackRowProps): boolean {
+  return (
+    prev.track.id === next.track.id &&
+    prev.index === next.index &&
+    prev.isPlaying === next.isPlaying &&
+    prev.isSelected === next.isSelected &&
+    // Callbacks are stable (useCallback in parent), so we don't compare them
+    prev.onPlay === next.onPlay &&
+    prev.onSelect === next.onSelect &&
+    prev.onDoubleClick === next.onDoubleClick
+  );
+}
+
+export const TrackRow = memo(TrackRowComponent, arePropsEqual);

@@ -240,63 +240,65 @@ export function Footer({
       </div>
 
       {/* Player Controls */}
-      <div className="flex-1 flex flex-col items-center gap-1 max-w-2xl">
-        {/* Buttons - Removed shuffle */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onPrevious}
-            className="p-2 rounded-full text-foreground hover:text-accent transition-colors"
-            title="Previous"
-          >
-            <SkipBack className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={onPlayPause}
-            className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center",
-              "bg-foreground text-background hover:scale-105 transition-transform"
-            )}
-            title={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? (
-              <Pause className="w-5 h-5" />
-            ) : (
-              <Play className="w-5 h-5 ml-0.5" />
-            )}
-          </button>
-
-          <button
-            onClick={onNext}
-            className="p-2 rounded-full text-foreground hover:text-accent transition-colors"
-            title="Next"
-          >
-            <SkipForward className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="w-full flex items-center gap-2">
-          <span className="text-xs text-muted-foreground w-10 text-right">
-            {formatTime(progress)}
-          </span>
-          <div
-            ref={progressRef}
-            onClick={handleProgressClick}
-            className="flex-1 h-1 bg-background-tertiary rounded-full cursor-pointer group"
-          >
-            <div
-              className="h-full bg-foreground rounded-full relative group-hover:bg-accent transition-colors"
-              style={{
-                width: `${duration > 0 ? (progress / duration) * 100 : 0}%`,
-              }}
+      <div className="flex-1 flex justify-center">
+        <div className="flex flex-col items-center gap-1 w-full max-w-2xl">
+          {/* Buttons - Removed shuffle */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onPrevious}
+              className="p-2 rounded-full text-foreground hover:text-accent transition-colors"
+              title="Previous"
             >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
+              <SkipBack className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={onPlayPause}
+              className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center",
+                "bg-foreground text-background hover:scale-105 transition-transform"
+              )}
+              title={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? (
+                <Pause className="w-5 h-5" />
+              ) : (
+                <Play className="w-5 h-5 ml-0.5" />
+              )}
+            </button>
+
+            <button
+              onClick={onNext}
+              className="p-2 rounded-full text-foreground hover:text-accent transition-colors"
+              title="Next"
+            >
+              <SkipForward className="w-5 h-5" />
+            </button>
           </div>
-          <span className="text-xs text-muted-foreground w-10">
-            {formatTime(duration)}
-          </span>
+
+          {/* Progress Bar */}
+          <div className="w-full flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-10 text-right">
+              {formatTime(progress)}
+            </span>
+            <div
+              ref={progressRef}
+              onClick={handleProgressClick}
+              className="flex-1 h-1 bg-background-tertiary rounded-full cursor-pointer group"
+            >
+              <div
+                className="h-full bg-foreground rounded-full relative group-hover:bg-accent transition-colors"
+                style={{
+                  width: `${duration > 0 ? (progress / duration) * 100 : 0}%`,
+                }}
+              >
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground w-10">
+              {formatTime(duration)}
+            </span>
+          </div>
         </div>
       </div>
 

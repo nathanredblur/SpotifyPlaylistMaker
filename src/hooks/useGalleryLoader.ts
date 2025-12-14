@@ -197,6 +197,14 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
         // Safely extract audio features
         const audioFeatures = galleryTrack.audio_features || {};
 
+        // Compute mood features from energy and valence
+        // These are derived features used for mood classification
+        const energy = audioFeatures.energy ?? 0;
+        const valence = audioFeatures.valence ?? 0;
+        const computedSadness = (1 - valence) * (1 - energy); // Low valence + low energy
+        const computedHappiness = valence * energy; // High valence + high energy
+        const computedAnger = energy * (1 - valence); // High energy + low valence
+
         // Extract genres from API response
         const genres = new Set<string>(galleryTrack.genres || []);
         const topGenre = galleryTrack.genres?.[0] || "";
@@ -246,9 +254,9 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
             source: "gallery",
             count: 1,
             age: 0,
-            sadness: 0,
-            happiness: 0,
-            anger: 0,
+            sadness: computedSadness,
+            happiness: computedHappiness,
+            anger: computedAnger,
           },
         };
 

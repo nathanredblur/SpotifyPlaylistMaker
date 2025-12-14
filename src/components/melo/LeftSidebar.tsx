@@ -11,7 +11,6 @@ import {
   Calendar,
   Star,
   Clock,
-  CalendarPlus,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { NavAccordion } from "./NavAccordion";
@@ -22,7 +21,7 @@ interface LeftSidebarProps {
   bins: CategoryBin[];
   totalTracks: number;
   activeFilter: {
-    type: "all" | "genre" | "mood" | "decade" | "popularity" | "duration" | "added";
+    type: "all" | "genres" | "moods" | "decades" | "popularity" | "duration";
     value?: string;
   };
   onFilterChange: (filter: { type: string; value?: string }) => void;
@@ -36,7 +35,6 @@ const binIcons: Record<string, typeof LayoutGrid> = {
   decades: Calendar,
   popularity: Star,
   duration: Clock,
-  added: CalendarPlus,
 };
 
 export function LeftSidebar({
@@ -48,7 +46,9 @@ export function LeftSidebar({
 }: LeftSidebarProps) {
   // Convert bins to accordion items (case-insensitive matching)
   const getAccordionItems = (binName: string) => {
-    const bin = bins.find((b) => b.name.toLowerCase() === binName.toLowerCase());
+    const bin = bins.find(
+      (b) => b.name.toLowerCase() === binName.toLowerCase()
+    );
     if (!bin) return [];
 
     return bin.nodes.map((node) => ({
@@ -118,9 +118,7 @@ export function LeftSidebar({
           label="Moods"
           items={getAccordionItems("Moods")}
           activeItemId={
-            activeFilter.type === "moods"
-              ? `moods:${activeFilter.value}`
-              : null
+            activeFilter.type === "moods" ? `moods:${activeFilter.value}` : null
           }
           onItemClick={handleAccordionItemClick}
           defaultOpen={activeFilter.type === "moods"}
@@ -162,20 +160,7 @@ export function LeftSidebar({
           }
           onItemClick={handleAccordionItemClick}
         />
-
-        <NavAccordion
-          icon={CalendarPlus}
-          label="Recently Added"
-          items={getAccordionItems("Added")}
-          activeItemId={
-            activeFilter.type === "added"
-              ? `added:${activeFilter.value}`
-              : null
-          }
-          onItemClick={handleAccordionItemClick}
-        />
       </div>
     </aside>
   );
 }
-

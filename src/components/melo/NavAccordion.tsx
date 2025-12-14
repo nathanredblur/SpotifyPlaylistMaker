@@ -23,6 +23,8 @@ interface NavAccordionProps {
   className?: string;
 }
 
+const INITIAL_VISIBLE_COUNT = 10;
+
 export function NavAccordion({
   icon: Icon,
   label,
@@ -33,8 +35,11 @@ export function NavAccordion({
   className,
 }: NavAccordionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [showAll, setShowAll] = useState(false);
 
   const hasActiveChild = items.some((item) => item.id === activeItemId);
+  const visibleItems = showAll ? items : items.slice(0, INITIAL_VISIBLE_COUNT);
+  const remainingCount = items.length - INITIAL_VISIBLE_COUNT;
 
   return (
     <div className={cn("", className)}>
@@ -62,11 +67,15 @@ export function NavAccordion({
       <div
         className={cn(
           "overflow-hidden transition-all duration-200",
-          isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          isOpen
+            ? showAll
+              ? "max-h-[80vh] opacity-100 overflow-y-auto"
+              : "max-h-96 opacity-100"
+            : "max-h-0 opacity-0"
         )}
       >
         <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
-          {items.slice(0, 10).map((item) => (
+          {visibleItems.map((item) => (
             <button
               key={item.id}
               onClick={() => onItemClick?.(item.id)}
@@ -92,10 +101,13 @@ export function NavAccordion({
               </span>
             </button>
           ))}
-          {items.length > 10 && (
-            <div className="px-2 py-1 text-xs text-muted-foreground">
-              +{items.length - 10} more
-            </div>
+          {remainingCount > 0 && (
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className="w-full px-2 py-1 text-xs text-muted-foreground hover:text-accent transition-colors duration-150 text-left"
+            >
+              {showAll ? "Show less" : `+${remainingCount} more`}
+            </button>
           )}
         </div>
       </div>

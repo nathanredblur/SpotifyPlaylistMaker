@@ -20,6 +20,7 @@ export { SpotifyEmbedPlayer } from "./SpotifyEmbedPlayer";
 export { MarqueeText } from "./MarqueeText";
 export { SortControls } from "./SortControls";
 export { AdvancedFilters } from "./AdvancedFilters";
+export { WelcomeDialog, HelpButton } from "./WelcomeDialog";
 
 // Widgets
 export { StatsCard } from "./widgets/StatsCard";

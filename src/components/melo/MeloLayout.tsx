@@ -12,6 +12,16 @@ import { TrackList } from "./TrackList";
 import { SpotifyEmbedPlayer } from "./SpotifyEmbedPlayer";
 import { SortControls, type SortConfig } from "./SortControls";
 import { AdvancedFilters, type AdvancedFiltersConfig } from "./AdvancedFilters";
+import { WelcomeDialog, HelpButton } from "./WelcomeDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useOptionalSpotifyPlayer } from "@/contexts/SpotifyPlayerContext";
 import type { Track, CategoryBin } from "@/types/spotify";
 
@@ -58,6 +68,14 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(
     new Set()
   );
+
+  // Dialog states
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [errorDialog, setErrorDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+  }>({ open: false, title: "", message: "" });
 
   // Filter and sort tracks
   const filteredTracks = useMemo(() => {
@@ -346,6 +364,14 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
     });
   }, []);
 
+  const handleSelectAll = useCallback(() => {
+    setSelectedTrackIds(new Set(filteredTracks.map((t) => t.id)));
+  }, [filteredTracks]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedTrackIds(new Set());
+  }, []);
+
   const handleOpenInSpotify = useCallback((trackId: string) => {
     window.open(`https://open.spotify.com/track/${trackId}`, "_blank");
   }, []);
@@ -356,7 +382,12 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
     );
 
     if (selectedTracks.length === 0) {
-      alert("Please select tracks to export");
+      setErrorDialog({
+        open: true,
+        title: "No tracks selected",
+        message:
+          "Please select at least one track before exporting. Click the checkbox next to tracks or use 'Select All' to select the entire list.",
+      });
       return;
     }
 
@@ -443,6 +474,7 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
         onSearchChange={setSearchQuery}
         galleryOwnerName={adminName}
         isPremium={spotifyPlayer?.isPremium}
+        onHelpClick={() => setShowWelcome(true)}
       />
 
       {/* Main Content */}
@@ -464,6 +496,8 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
             selectedTrackIds={selectedTrackIds}
             onPlayTrack={handlePlayTrackById}
             onSelectTrack={handleSelectTrack}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
             onOpenInSpotify={handleOpenInSpotify}
             controls={
               <>
@@ -512,6 +546,30 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
           ) : undefined
         }
       />
+
+      {/* Welcome Dialog */}
+      <WelcomeDialog
+        forceOpen={showWelcome}
+        onClose={() => setShowWelcome(false)}
+      />
+
+      {/* Error Dialog */}
+      <AlertDialog
+        open={errorDialog.open}
+        onOpenChange={(open) => setErrorDialog((prev) => ({ ...prev, open }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{errorDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {errorDialog.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

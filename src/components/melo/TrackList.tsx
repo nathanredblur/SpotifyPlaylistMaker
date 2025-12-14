@@ -8,7 +8,7 @@
 
 import { useRef, useMemo, useCallback, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Clock, Music } from "lucide-react";
+import { Clock, Music, CheckSquare, Square } from "lucide-react";
 import { TrackRow } from "./TrackRow";
 import { cn } from "@/lib/utils";
 import type { Track } from "@/types/spotify";
@@ -31,6 +31,8 @@ interface TrackListProps {
   selectedTrackIds: Set<string>;
   onPlayTrack: (trackId: string) => void;
   onSelectTrack: (trackId: string) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
   onOpenInSpotify: (trackId: string) => void;
   className?: string;
   /** Optional controls to render in the header (sort, filter) */
@@ -61,6 +63,8 @@ export function TrackList({
   selectedTrackIds,
   onPlayTrack,
   onSelectTrack,
+  onSelectAll,
+  onDeselectAll,
   onOpenInSpotify,
   className,
   controls,
@@ -145,14 +149,43 @@ export function TrackList({
         </div>
       </div>
 
-      {/* Track Count & Duration */}
-      <div className="px-4 py-2 text-xs text-muted-foreground border-b border-border">
-        {tracks.length} track{tracks.length !== 1 ? "s" : ""} • {totalDuration}
-        {selectedTrackIds.size > 0 && (
-          <span className="ml-2 text-accent">
-            • {selectedTrackIds.size} selected
+      {/* Track Count & Duration with Select All */}
+      <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground border-b border-border">
+        <div className="flex items-center gap-2">
+          <span>
+            {tracks.length} track{tracks.length !== 1 ? "s" : ""} •{" "}
+            {totalDuration}
           </span>
-        )}
+          {selectedTrackIds.size > 0 && (
+            <span className="text-accent">
+              • {selectedTrackIds.size} selected
+            </span>
+          )}
+        </div>
+
+        {/* Select/Deselect All Buttons */}
+        <div className="flex items-center gap-1">
+          {selectedTrackIds.size < tracks.length ? (
+            <button
+              onClick={onSelectAll}
+              className="flex items-center gap-1 px-2 py-1 rounded hover:bg-accent/10 hover:text-accent transition-colors"
+              title="Select all tracks"
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Select all</span>
+            </button>
+          ) : null}
+          {selectedTrackIds.size > 0 && (
+            <button
+              onClick={onDeselectAll}
+              className="flex items-center gap-1 px-2 py-1 rounded hover:bg-accent/10 hover:text-accent transition-colors"
+              title="Deselect all tracks"
+            >
+              <Square className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Deselect all</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Virtualized Track Rows */}

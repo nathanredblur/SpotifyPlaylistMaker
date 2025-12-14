@@ -3,6 +3,7 @@
  * Top navigation bar with logo, search, and user avatar
  */
 
+import { HelpCircle } from "lucide-react";
 import { MeloLogo } from "./MeloLogo";
 import { GlobalSearch } from "./GlobalSearch";
 import { UserAvatar } from "./UserAvatar";
@@ -13,6 +14,7 @@ interface HeaderProps {
   onSearchChange: (value: string) => void;
   galleryOwnerName?: string;
   isPremium?: boolean | null;
+  onHelpClick?: () => void;
   className?: string;
 }
 
@@ -21,6 +23,7 @@ export function Header({
   onSearchChange,
   galleryOwnerName,
   isPremium,
+  onHelpClick,
   className,
 }: HeaderProps) {
   return (
@@ -44,8 +47,18 @@ export function Header({
         className="mx-8"
       />
 
-      {/* Right: User Avatar */}
-      <div className="flex items-center gap-4">
+      {/* Right: Help and User Avatar */}
+      <div className="flex items-center gap-2">
+        {onHelpClick && (
+          <button
+            onClick={onHelpClick}
+            className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
+            title="Help & Introduction"
+            aria-label="Help"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+        )}
         <UserAvatar isPremium={isPremium} galleryOwnerName={galleryOwnerName} />
       </div>
     </header>

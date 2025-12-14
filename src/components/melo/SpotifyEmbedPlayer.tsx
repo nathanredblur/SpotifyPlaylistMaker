@@ -12,11 +12,13 @@ import { Loader2 } from "lucide-react";
 interface SpotifyEmbedPlayerProps {
   trackId: string | null;
   className?: string;
+  onTrackEnd?: () => void;
 }
 
 export function SpotifyEmbedPlayer({
   trackId,
   className,
+  onTrackEnd,
 }: SpotifyEmbedPlayerProps) {
   const embed = useSpotifyEmbed();
   const lastTrackIdRef = useRef<string | null>(null);
@@ -28,6 +30,15 @@ export function SpotifyEmbedPlayer({
       embed.loadTrack(trackId);
     }
   }, [trackId, embed.loadTrack]);
+
+  // Auto-advance when track ends
+  useEffect(() => {
+    if (embed.trackEnded && onTrackEnd) {
+      embed.resetTrackEnded();
+      onTrackEnd();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embed.trackEnded]);
 
   return (
     <div className={cn("relative w-full", className)}>

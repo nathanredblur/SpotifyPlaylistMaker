@@ -75,6 +75,7 @@ export interface SpotifyEmbedState {
   position: number;
   duration: number;
   error: string | null;
+  trackEnded: boolean;
 }
 
 export interface SpotifyEmbedActions {
@@ -83,6 +84,7 @@ export interface SpotifyEmbedActions {
   pause: () => void;
   togglePlay: () => void;
   seek: (seconds: number) => void;
+  resetTrackEnded: () => void;
 }
 
 export interface UseSpotifyEmbedResult
@@ -167,6 +169,7 @@ export function useSpotifyEmbed(): UseSpotifyEmbedResult {
     position: 0,
     duration: 0,
     error: null,
+    trackEnded: false,
   });
 
   // Update state helper
@@ -235,6 +238,8 @@ export function useSpotifyEmbed(): UseSpotifyEmbedResult {
 
           // Track if we've attempted to auto-play
           let hasAttemptedAutoPlay = false;
+          // Track if we've already triggered track end for this track
+          let hasTriggeredTrackEnd = false;
 
           // Add event listeners
           controller.addListener("ready", () => {
@@ -252,12 +257,25 @@ export function useSpotifyEmbed(): UseSpotifyEmbedResult {
           controller.addListener(
             "playback_update",
             (e: PlaybackUpdateEvent) => {
+              const { position, duration, isPaused } = e.data;
+
+              // Check for track end: position very close to duration (< 1500ms remaining)
+              // Only trigger once per track
+              const isVeryNearEnd =
+                duration > 0 && position >= duration - 1500 && !isPaused;
+              const shouldTriggerEnd = isVeryNearEnd && !hasTriggeredTrackEnd;
+
+              if (shouldTriggerEnd) {
+                hasTriggeredTrackEnd = true;
+              }
+
               updateState({
                 isPaused: e.data.isPaused,
                 isBuffering: e.data.isBuffering,
                 position: e.data.position,
                 duration: e.data.duration,
                 currentUri: e.data.playingURI,
+                trackEnded: shouldTriggerEnd,
               });
 
               // Backup auto-play: if track loaded but still paused
@@ -341,6 +359,10 @@ export function useSpotifyEmbed(): UseSpotifyEmbedResult {
     controllerRef.current?.seek(seconds);
   }, []);
 
+  const resetTrackEnded = useCallback(() => {
+    updateState({ trackEnded: false });
+  }, [updateState]);
+
   return {
     ...state,
     embedRef,
@@ -349,5 +371,6 @@ export function useSpotifyEmbed(): UseSpotifyEmbedResult {
     pause,
     togglePlay,
     seek,
+    resetTrackEnded,
   };
 }

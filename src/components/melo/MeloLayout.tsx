@@ -365,7 +365,10 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
         noPreviewAvailable={!useSpotifyPlayback}
         embedPlayer={
           !useSpotifyPlayback && currentTrack ? (
-            <SpotifyEmbedPlayer trackId={currentTrack.id} />
+            <SpotifyEmbedPlayer
+              trackId={currentTrack.id}
+              onTrackEnd={handleNext}
+            />
           ) : undefined
         }
       />

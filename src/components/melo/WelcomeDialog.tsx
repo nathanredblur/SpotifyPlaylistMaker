@@ -108,7 +108,7 @@ export function WelcomeDialog({ forceOpen, onClose }: WelcomeDialogProps) {
       icon: Music2,
       title: "Welcome to MELO",
       description:
-        "Your personal music gallery powered by Spotify. Explore, organize, and discover your music collection in new ways.",
+        "A curated music gallery featuring Nathan Redblur's favorite tracks. Explore the collection, discover new music, and see what inspires the creator.",
     },
     {
       icon: SlidersHorizontal,

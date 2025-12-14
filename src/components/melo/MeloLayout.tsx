@@ -3,7 +3,7 @@
  * Main layout wrapper with three-column structure
  */
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Header } from "./Header";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
@@ -12,7 +12,7 @@ import { TrackList } from "./TrackList";
 import { SpotifyEmbedPlayer } from "./SpotifyEmbedPlayer";
 import { SortControls, type SortConfig } from "./SortControls";
 import { AdvancedFilters, type AdvancedFiltersConfig } from "./AdvancedFilters";
-import { WelcomeDialog, HelpButton } from "./WelcomeDialog";
+import { WelcomeDialog } from "./WelcomeDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useOptionalSpotifyPlayer } from "@/contexts/SpotifyPlayerContext";
+import { useUrlState, type Filter, type FilterType } from "@/hooks/useUrlState";
 import type { Track, CategoryBin } from "@/types/spotify";
 
 interface MeloLayoutProps {
@@ -31,33 +32,21 @@ interface MeloLayoutProps {
   adminName?: string;
 }
 
-type FilterType =
-  | "all"
-  | "genres"
-  | "moods"
-  | "decades"
-  | "popularity"
-  | "duration";
-
-interface Filter {
-  type: FilterType;
-  value?: string;
-}
-
 export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   // Spotify Player (optional - only works with Premium)
   const spotifyPlayer = useOptionalSpotifyPlayer();
   const useSpotifyPlayback = spotifyPlayer?.isReady && spotifyPlayer?.isPremium;
 
-  // State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<Filter>({ type: "all" });
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    field: "default",
-    direction: "asc",
-  });
+  // URL State - initialize from URL params
+  const { urlState, updateUrl } = useUrlState();
+  const initializedRef = useRef(false);
+
+  // State - initialized from URL
+  const [searchQuery, setSearchQuery] = useState(urlState.search);
+  const [activeFilter, setActiveFilter] = useState<Filter>(urlState.filter);
+  const [sortConfig, setSortConfig] = useState<SortConfig>(urlState.sort);
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersConfig>(
-    {}
+    urlState.advancedFilters
   );
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -466,6 +455,26 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
     }
   }, [useSpotifyPlayback, spotifyPlayer?.trackEnded, currentTrack, handleNext]);
 
+  // Sync state to URL (debounced to avoid too many history updates)
+  useEffect(() => {
+    // Skip the first render to avoid overwriting URL on mount
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      updateUrl({
+        filter: activeFilter,
+        sort: sortConfig,
+        advancedFilters,
+        search: searchQuery,
+      });
+    }, 300); // Debounce 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [activeFilter, sortConfig, advancedFilters, searchQuery, updateUrl]);
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
@@ -484,7 +493,9 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
           bins={bins}
           totalTracks={tracks.size}
           activeFilter={activeFilter}
-          onFilterChange={(filter) => setActiveFilter(filter as Filter)}
+          onFilterChange={(filter) =>
+            setActiveFilter(filter as { type: FilterType; value?: string })
+          }
         />
 
         {/* Main Track List */}

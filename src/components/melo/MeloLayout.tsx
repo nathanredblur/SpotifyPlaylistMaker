@@ -144,16 +144,16 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
 
         switch (sortConfig.field) {
           case "name":
-            aVal = a.details.name?.toLowerCase() || "";
-            bVal = b.details.name?.toLowerCase() || "";
+            aVal = a.details.name || "";
+            bVal = b.details.name || "";
             break;
           case "artist":
-            aVal = a.details.artists?.[0]?.name?.toLowerCase() || "";
-            bVal = b.details.artists?.[0]?.name?.toLowerCase() || "";
+            aVal = a.details.artists?.[0]?.name || "";
+            bVal = b.details.artists?.[0]?.name || "";
             break;
           case "album":
-            aVal = a.details.album?.name?.toLowerCase() || "";
-            bVal = b.details.album?.name?.toLowerCase() || "";
+            aVal = a.details.album?.name || "";
+            bVal = b.details.album?.name || "";
             break;
           case "popularity":
             aVal = a.details.popularity || 0;
@@ -162,10 +162,6 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
           case "duration":
             aVal = a.details.duration_ms || 0;
             bVal = b.details.duration_ms || 0;
-            break;
-          case "dateAdded":
-            aVal = a.feats?.date_added?.getTime() || 0;
-            bVal = b.feats?.date_added?.getTime() || 0;
             break;
           // Audio features
           case "tempo":
@@ -191,7 +187,17 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
 
         // Compare
         if (typeof aVal === "string" && typeof bVal === "string") {
-          const comparison = aVal.localeCompare(bVal);
+          // Handle empty strings - push to end for ascending, start for descending
+          if (aVal === "" && bVal !== "")
+            return sortConfig.direction === "asc" ? 1 : -1;
+          if (aVal !== "" && bVal === "")
+            return sortConfig.direction === "asc" ? -1 : 1;
+
+          // Use localeCompare with numeric option for natural sorting
+          const comparison = aVal.localeCompare(bVal, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          });
           return sortConfig.direction === "asc" ? comparison : -comparison;
         }
 
@@ -205,6 +211,26 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
 
   const handlePlayTrack = useCallback(
     async (track: Track) => {
+      // Check if track is playable
+      if (track.details.is_playable === false) {
+        console.warn("Track is not playable:", track.details.name);
+        // Skip to next playable track
+        const currentIndex = filteredTracks.findIndex((t) => t.id === track.id);
+        if (currentIndex !== -1) {
+          // Find next playable track
+          for (let i = 1; i < filteredTracks.length; i++) {
+            const nextIndex = (currentIndex + i) % filteredTracks.length;
+            const nextTrack = filteredTracks[nextIndex];
+            if (nextTrack.details.is_playable !== false) {
+              // Recursively try to play the next track
+              handlePlayTrack(nextTrack);
+              return;
+            }
+          }
+        }
+        return;
+      }
+
       // Use Spotify Web Playback SDK if available
       if (useSpotifyPlayback && spotifyPlayer) {
         const spotifyUri = `spotify:track:${track.id}`;
@@ -224,7 +250,7 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
       setCurrentTrack(track);
       setIsPlaying(true);
     },
-    [useSpotifyPlayback, spotifyPlayer]
+    [useSpotifyPlayback, spotifyPlayer, filteredTracks]
   );
 
   const handlePlayPause = useCallback(async () => {

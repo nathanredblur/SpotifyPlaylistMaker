@@ -31,6 +31,8 @@ export interface SpotifyTrackDetails {
   popularity: number;
   artists: SpotifyArtist[];
   album: SpotifyAlbum;
+  is_playable?: boolean;
+  is_local?: boolean;
   external_ids?: {
     isrc?: string;
     ean?: string;

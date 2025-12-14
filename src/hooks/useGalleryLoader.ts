@@ -179,6 +179,8 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
           explicit?: boolean;
           popularity?: number;
           preview_url?: string | null;
+          is_playable?: boolean;
+          is_local?: boolean;
           genres?: string[];
           audio_features?: {
             tempo?: number;
@@ -222,6 +224,8 @@ export function useGalleryLoader(): UseGalleryLoaderResult {
             explicit: galleryTrack.explicit || false,
             popularity: galleryTrack.popularity || 0,
             preview_url: galleryTrack.preview_url || null,
+            is_playable: galleryTrack.is_playable ?? true,
+            is_local: galleryTrack.is_local ?? false,
             uri: `spotify:track:${galleryTrack.id}`,
           },
           feats: {

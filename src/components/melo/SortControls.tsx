@@ -36,7 +36,6 @@ export type SortField =
   | "album"
   | "popularity"
   | "duration"
-  | "dateAdded"
   // Advanced - Audio Features
   | "tempo"
   | "energy"
@@ -76,7 +75,6 @@ const BASIC_SORT_OPTIONS: SortOption[] = [
   { field: "album", label: "Album", defaultDirection: "asc" },
   { field: "popularity", label: "Popularity", defaultDirection: "desc" },
   { field: "duration", label: "Duration", defaultDirection: "desc" },
-  { field: "dateAdded", label: "Date Added", defaultDirection: "desc" },
 ];
 
 const ADVANCED_SORT_OPTIONS: SortOption[] = [
@@ -105,7 +103,6 @@ const SORT_LABELS: Record<SortField, string> = {
   album: "Album",
   popularity: "Popularity",
   duration: "Duration",
-  dateAdded: "Date Added",
   tempo: "Tempo",
   energy: "Energy",
   danceability: "Danceability",

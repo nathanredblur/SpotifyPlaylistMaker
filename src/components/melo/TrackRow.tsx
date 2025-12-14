@@ -3,7 +3,7 @@
  * Individual track row in the track list
  */
 
-import { Play, Pause, Check } from "lucide-react";
+import { Play, Pause, Check, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Track } from "@/types/spotify";
 
@@ -39,6 +39,9 @@ export function TrackRow({
     track.details.album?.images?.[1]?.url ||
     track.details.album?.images?.[0]?.url;
 
+  // Check if track is playable (default to true if undefined)
+  const isPlayable = track.details.is_playable !== false;
+
   return (
     <div
       className={cn(
@@ -47,34 +50,44 @@ export function TrackRow({
         "hover:bg-accent-muted",
         isPlaying && "bg-accent-muted",
         isSelected && "bg-accent/10",
+        !isPlayable && "opacity-50",
         className
       )}
       onDoubleClick={onDoubleClick}
+      title={
+        !isPlayable ? "This track is not available for playback" : undefined
+      }
     >
       {/* Index / Play Button */}
       <div className="w-8 flex items-center justify-center">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onPlay();
-          }}
-          className={cn(
-            "w-8 h-8 flex items-center justify-center rounded-full",
-            "transition-all duration-150",
-            isPlaying
-              ? "text-accent"
-              : "text-muted-foreground group-hover:text-foreground"
-          )}
-        >
-          {isPlaying ? (
-            <Pause className="w-4 h-4" />
-          ) : (
-            <>
-              <span className="group-hover:hidden text-sm">{index + 1}</span>
-              <Play className="w-4 h-4 hidden group-hover:block" />
-            </>
-          )}
-        </button>
+        {!isPlayable ? (
+          <div className="w-8 h-8 flex items-center justify-center text-muted-foreground">
+            <Ban className="w-4 h-4" />
+          </div>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPlay();
+            }}
+            className={cn(
+              "w-8 h-8 flex items-center justify-center rounded-full",
+              "transition-all duration-150",
+              isPlaying
+                ? "text-accent"
+                : "text-muted-foreground group-hover:text-foreground"
+            )}
+          >
+            {isPlaying ? (
+              <Pause className="w-4 h-4" />
+            ) : (
+              <>
+                <span className="group-hover:hidden text-sm">{index + 1}</span>
+                <Play className="w-4 h-4 hidden group-hover:block" />
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Selection Checkbox */}
@@ -95,7 +108,7 @@ export function TrackRow({
       </button>
 
       {/* Album Art */}
-      <div className="w-10 h-10 rounded overflow-hidden flex-shrink-0">
+      <div className="w-10 h-10 rounded overflow-hidden shrink-0">
         {albumArt ? (
           <img
             src={albumArt}
@@ -144,4 +157,3 @@ export function TrackRow({
     </div>
   );
 }
-

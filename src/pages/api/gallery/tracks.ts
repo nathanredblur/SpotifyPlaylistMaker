@@ -97,6 +97,9 @@ function transformTrack(track: TrackRecord) {
     isrc: track.isrc || null,
     artists: artistsJson,
     album: (spotifyData.album as Record<string, unknown>) || {},
+    // Playability info from Spotify (default true if not specified)
+    is_playable: (spotifyData.is_playable as boolean) ?? true,
+    is_local: (spotifyData.is_local as boolean) ?? false,
     genres, // Include genres from SoundCharts
     // Audio features from SoundCharts (if available)
     audio_features:

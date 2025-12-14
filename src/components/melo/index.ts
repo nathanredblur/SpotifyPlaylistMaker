@@ -18,6 +18,8 @@ export { TrackList } from "./TrackList";
 export { TrackRow } from "./TrackRow";
 export { SpotifyEmbedPlayer } from "./SpotifyEmbedPlayer";
 export { MarqueeText } from "./MarqueeText";
+export { SortControls } from "./SortControls";
+export { AdvancedFilters } from "./AdvancedFilters";
 
 // Widgets
 export { StatsCard } from "./widgets/StatsCard";

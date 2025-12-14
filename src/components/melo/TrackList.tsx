@@ -3,7 +3,7 @@
  * Main track list with header and rows
  */
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Clock, Music } from "lucide-react";
 import { TrackRow } from "./TrackRow";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,8 @@ interface TrackListProps {
   onSelectTrack: (trackId: string) => void;
   onOpenInSpotify: (track: Track) => void;
   className?: string;
+  /** Optional controls to render in the header (sort, filter) */
+  controls?: ReactNode;
 }
 
 export function TrackList({
@@ -29,6 +31,7 @@ export function TrackList({
   onSelectTrack,
   onOpenInSpotify,
   className,
+  controls,
 }: TrackListProps) {
   // Calculate total duration
   const totalDuration = useMemo(() => {
@@ -60,6 +63,13 @@ export function TrackList({
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
+      {/* Controls Bar (Sort & Filter) */}
+      {controls && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-background-secondary/50">
+          {controls}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-4 px-4 py-3 border-b border-border text-xs text-muted-foreground uppercase tracking-wider">
         <div className="w-8 text-center">#</div>
@@ -102,4 +112,3 @@ export function TrackList({
     </div>
   );
 }
-

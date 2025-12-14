@@ -10,6 +10,8 @@ import { RightSidebar } from "./RightSidebar";
 import { Footer } from "./Footer";
 import { TrackList } from "./TrackList";
 import { SpotifyEmbedPlayer } from "./SpotifyEmbedPlayer";
+import { SortControls, type SortConfig } from "./SortControls";
+import { AdvancedFilters, type AdvancedFiltersConfig } from "./AdvancedFilters";
 import { useOptionalSpotifyPlayer } from "@/contexts/SpotifyPlayerContext";
 import type { Track, CategoryBin } from "@/types/spotify";
 
@@ -40,6 +42,13 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<Filter>({ type: "all" });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    field: "default",
+    direction: "asc",
+  });
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersConfig>(
+    {}
+  );
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -50,7 +59,7 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
     new Set()
   );
 
-  // Filter tracks based on search and category
+  // Filter and sort tracks
   const filteredTracks = useMemo(() => {
     let result = Array.from(tracks.values());
 
@@ -84,8 +93,115 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
       });
     }
 
+    // Apply advanced filters
+    if (Object.keys(advancedFilters).length > 0) {
+      result = result.filter((track) => {
+        const feats = track.feats;
+        const details = track.details;
+
+        for (const [key, range] of Object.entries(advancedFilters)) {
+          if (!range) continue;
+
+          let value: number | undefined;
+
+          // Get the value based on key
+          switch (key) {
+            case "energy":
+            case "danceability":
+            case "valence":
+            case "acousticness":
+            case "instrumentalness":
+            case "liveness":
+            case "speechiness":
+            case "tempo":
+            case "loudness":
+            case "happiness":
+            case "sadness":
+            case "anger":
+              value = feats?.[key as keyof typeof feats] as number | undefined;
+              break;
+            case "popularity":
+              value = details.popularity;
+              break;
+            case "duration":
+              value = details.duration_ms;
+              break;
+          }
+
+          if (value === undefined) continue;
+          if (value < range.min || value > range.max) return false;
+        }
+
+        return true;
+      });
+    }
+
+    // Apply sorting
+    if (sortConfig.field !== "default") {
+      result = [...result].sort((a, b) => {
+        let aVal: string | number = 0;
+        let bVal: string | number = 0;
+
+        switch (sortConfig.field) {
+          case "name":
+            aVal = a.details.name?.toLowerCase() || "";
+            bVal = b.details.name?.toLowerCase() || "";
+            break;
+          case "artist":
+            aVal = a.details.artists?.[0]?.name?.toLowerCase() || "";
+            bVal = b.details.artists?.[0]?.name?.toLowerCase() || "";
+            break;
+          case "album":
+            aVal = a.details.album?.name?.toLowerCase() || "";
+            bVal = b.details.album?.name?.toLowerCase() || "";
+            break;
+          case "popularity":
+            aVal = a.details.popularity || 0;
+            bVal = b.details.popularity || 0;
+            break;
+          case "duration":
+            aVal = a.details.duration_ms || 0;
+            bVal = b.details.duration_ms || 0;
+            break;
+          case "dateAdded":
+            aVal = a.feats?.date_added?.getTime() || 0;
+            bVal = b.feats?.date_added?.getTime() || 0;
+            break;
+          // Audio features
+          case "tempo":
+          case "energy":
+          case "danceability":
+          case "valence":
+          case "acousticness":
+          case "instrumentalness":
+          case "liveness":
+          case "loudness":
+          case "speechiness":
+          case "happiness":
+          case "sadness":
+          case "anger":
+            aVal =
+              (a.feats?.[sortConfig.field as keyof typeof a.feats] as number) ||
+              0;
+            bVal =
+              (b.feats?.[sortConfig.field as keyof typeof b.feats] as number) ||
+              0;
+            break;
+        }
+
+        // Compare
+        if (typeof aVal === "string" && typeof bVal === "string") {
+          const comparison = aVal.localeCompare(bVal);
+          return sortConfig.direction === "asc" ? comparison : -comparison;
+        }
+
+        const comparison = (aVal as number) - (bVal as number);
+        return sortConfig.direction === "asc" ? comparison : -comparison;
+      });
+    }
+
     return result;
-  }, [tracks, bins, activeFilter, searchQuery]);
+  }, [tracks, bins, activeFilter, searchQuery, advancedFilters, sortConfig]);
 
   const handlePlayTrack = useCallback(
     async (track: Track) => {
@@ -334,6 +450,15 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
             onPlayTrack={handlePlayTrack}
             onSelectTrack={handleSelectTrack}
             onOpenInSpotify={handleOpenInSpotify}
+            controls={
+              <>
+                <SortControls sort={sortConfig} onSortChange={setSortConfig} />
+                <AdvancedFilters
+                  filters={advancedFilters}
+                  onFiltersChange={setAdvancedFilters}
+                />
+              </>
+            }
           />
         </main>
 

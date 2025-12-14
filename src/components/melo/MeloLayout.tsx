@@ -296,8 +296,13 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   const noPreviewAvailable =
     !useSpotifyPlayback && currentTrack && !currentTrack.details.preview_url;
 
-  // TODO: Add auto-advance to next track when current track ends (Premium mode)
-  // This needs a different approach - possibly using Spotify's queue API
+  // Auto-advance to next track when current track ends (Premium mode)
+  useEffect(() => {
+    if (useSpotifyPlayback && spotifyPlayer?.trackEnded && currentTrack) {
+      spotifyPlayer.resetTrackEnded();
+      handleNext();
+    }
+  }, [useSpotifyPlayback, spotifyPlayer?.trackEnded, currentTrack, handleNext]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">

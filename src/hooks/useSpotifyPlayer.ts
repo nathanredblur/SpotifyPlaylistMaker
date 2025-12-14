@@ -114,6 +114,7 @@ export interface SpotifyPlayerState {
   deviceId: string | null;
   error: string | null;
   isPremium: boolean | null;
+  trackEnded: boolean; // True when current track has finished playing
 }
 
 export interface SpotifyPlayerActions {
@@ -127,6 +128,7 @@ export interface SpotifyPlayerActions {
   setVolume: (volume: number) => Promise<void>;
   transferPlayback: () => Promise<void>;
   disconnect: () => void;
+  resetTrackEnded: () => void;
 }
 
 export interface UseSpotifyPlayerResult
@@ -254,6 +256,7 @@ export function useSpotifyPlayer(): UseSpotifyPlayerResult {
     deviceId: null,
     error: null,
     isPremium: null,
+    trackEnded: false,
   });
 
   // Update state helper
@@ -271,8 +274,27 @@ export function useSpotifyPlayer(): UseSpotifyPlayerResult {
       if (!playerRef.current) return;
 
       const state = await playerRef.current.getCurrentState();
-      if (state && !state.paused) {
-        updateState({ position: state.position });
+      if (!state) return;
+
+      const { position, paused } = state;
+      const duration = state.duration || 0;
+
+      // Update position
+      if (!paused) {
+        updateState({ position });
+      }
+
+      // Check for track end: position very close to duration (< 1500ms remaining)
+      // Using 1500ms because interval is 1000ms, so we need buffer
+      const isVeryNearEnd = duration > 0 && position >= duration - 1500;
+
+      if (isVeryNearEnd && !paused) {
+        updateState({ trackEnded: true });
+        // Stop tracking to avoid repeated triggers
+        if (positionIntervalRef.current) {
+          clearInterval(positionIntervalRef.current);
+          positionIntervalRef.current = null;
+        }
       }
     }, POSITION_UPDATE_INTERVAL);
   }, [updateState]);
@@ -375,27 +397,35 @@ export function useSpotifyPlayer(): UseSpotifyPlayerResult {
         // State changed handler
         player.addListener("player_state_changed", (data) => {
           const playbackState = data as WebPlaybackState | null;
+
           if (!playbackState) {
-            updateState({ isActive: false, currentTrack: null });
+            updateState({
+              isActive: false,
+              currentTrack: null,
+            });
             stopPositionTracking();
             return;
           }
 
           const { current_track } = playbackState.track_window;
+          const { position, paused } = playbackState;
+          const trackDuration = playbackState.duration || 0;
 
           updateState({
             isActive: true,
-            isPaused: playbackState.paused,
+            isPaused: paused,
             currentTrack: current_track,
-            position: playbackState.position,
-            duration: playbackState.duration || 0,
+            position: position,
+            duration: trackDuration,
             shuffle: playbackState.shuffle,
             repeatMode: playbackState.repeat_mode,
           });
 
-          if (playbackState.paused) {
+          if (paused) {
             stopPositionTracking();
           } else {
+            // Reset trackEnded when playback resumes
+            updateState({ trackEnded: false });
             startPositionTracking();
           }
         });
@@ -586,6 +616,10 @@ export function useSpotifyPlayer(): UseSpotifyPlayerResult {
     });
   }, [stopPositionTracking, updateState]);
 
+  const resetTrackEnded = useCallback(() => {
+    updateState({ trackEnded: false });
+  }, [updateState]);
+
   return {
     ...state,
     play,
@@ -598,5 +632,6 @@ export function useSpotifyPlayer(): UseSpotifyPlayerResult {
     setVolume,
     transferPlayback,
     disconnect,
+    resetTrackEnded,
   };
 }

@@ -12,6 +12,7 @@ import { TrackList } from "./TrackList";
 import { SpotifyEmbedPlayer } from "./SpotifyEmbedPlayer";
 import { SortControls, type SortConfig } from "./SortControls";
 import { AdvancedFilters, type AdvancedFiltersConfig } from "./AdvancedFilters";
+import { ColumnSelector, useColumnVisibility } from "./ColumnSelector";
 import { WelcomeDialog } from "./WelcomeDialog";
 import {
   AlertDialog,
@@ -40,6 +41,10 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   // URL State - initialize from URL params
   const { urlState, updateUrl } = useUrlState();
   const initializedRef = useRef(false);
+
+  // Column visibility
+  const { visibleColumns, toggleColumn, resetToDefaults } =
+    useColumnVisibility();
 
   // State - initialized from URL
   const [searchQuery, setSearchQuery] = useState(urlState.search);
@@ -505,6 +510,7 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
             currentTrackId={currentTrack?.id || null}
             isPlaying={isPlaying}
             selectedTrackIds={selectedTrackIds}
+            visibleColumns={visibleColumns}
             onPlayTrack={handlePlayTrackById}
             onSelectTrack={handleSelectTrack}
             onSelectAll={handleSelectAll}
@@ -516,6 +522,11 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
                 <AdvancedFilters
                   filters={advancedFilters}
                   onFiltersChange={setAdvancedFilters}
+                />
+                <ColumnSelector
+                  visibleColumns={visibleColumns}
+                  onToggleColumn={toggleColumn}
+                  onReset={resetToDefaults}
                 />
               </>
             }

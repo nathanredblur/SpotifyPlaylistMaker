@@ -10,6 +10,7 @@ import { useRef, useMemo, useCallback, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Clock, Music, CheckSquare, Square } from "lucide-react";
 import { TrackRow } from "./TrackRow";
+import { AVAILABLE_COLUMNS, type VisibleColumns } from "./ColumnSelector";
 import { cn } from "@/lib/utils";
 import type { Track } from "@/types/spotify";
 
@@ -29,13 +30,14 @@ interface TrackListProps {
   currentTrackId: string | null;
   isPlaying: boolean;
   selectedTrackIds: Set<string>;
+  visibleColumns: VisibleColumns;
   onPlayTrack: (trackId: string) => void;
   onSelectTrack: (trackId: string) => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
   onOpenInSpotify: (trackId: string) => void;
   className?: string;
-  /** Optional controls to render in the header (sort, filter) */
+  /** Optional controls to render in the header (sort, filter, columns) */
   controls?: ReactNode;
 }
 
@@ -61,6 +63,7 @@ export function TrackList({
   currentTrackId,
   isPlaying,
   selectedTrackIds,
+  visibleColumns,
   onPlayTrack,
   onSelectTrack,
   onSelectAll,
@@ -144,7 +147,23 @@ export function TrackList({
             <div className="w-5" /> {/* Checkbox space */}
             <div className="w-10" /> {/* Album art space */}
             <div className="flex-1">Title</div>
-            <div className="w-40 hidden 2xl:block">Album</div>
+            {/* Dynamic Columns */}
+            {AVAILABLE_COLUMNS.map((col) =>
+              visibleColumns.has(col.id) ? (
+                <div
+                  key={col.id}
+                  className={cn(
+                    col.width,
+                    "hidden",
+                    col.id === "album" ? "lg:block" : "md:block",
+                    col.id === "genres" && "xl:block",
+                    col.id !== "album" && col.id !== "genres" && "text-center"
+                  )}
+                >
+                  {col.label}
+                </div>
+              ) : null
+            )}
             <div className="w-12 text-right flex items-center justify-end gap-1">
               <Clock className="w-3 h-3" />
             </div>
@@ -224,6 +243,7 @@ export function TrackList({
                       index={virtualRow.index}
                       isPlaying={isRowPlaying}
                       isSelected={isRowSelected}
+                      visibleColumns={visibleColumns}
                       onPlay={handlePlay}
                       onSelect={handleSelect}
                       onDoubleClick={handleDoubleClick}

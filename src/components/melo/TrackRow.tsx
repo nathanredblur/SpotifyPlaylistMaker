@@ -6,12 +6,14 @@
  * - track data changes
  * - isPlaying state changes
  * - isSelected state changes
+ * - visibleColumns changes
  */
 
 import { memo } from "react";
 import { Play, Pause, Check, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Track } from "@/types/spotify";
+import type { VisibleColumns } from "./ColumnSelector";
 
 // ============================================================================
 // Types
@@ -22,6 +24,7 @@ interface TrackRowProps {
   index: number;
   isPlaying: boolean;
   isSelected: boolean;
+  visibleColumns: VisibleColumns;
   onPlay: (trackId: string) => void;
   onSelect: (trackId: string) => void;
   onDoubleClick: (trackId: string) => void;
@@ -37,6 +40,17 @@ function formatDuration(ms: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+function formatPercent(value: number | undefined): string {
+  if (value === undefined) return "-";
+  return `${Math.round(value * 100)}%`;
+}
+
+function getDecade(year: number | undefined): string {
+  if (!year) return "-";
+  const decade = Math.floor(year / 10) * 10;
+  return `${decade}s`;
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -46,11 +60,12 @@ function TrackRowComponent({
   index,
   isPlaying,
   isSelected,
+  visibleColumns,
   onPlay,
   onSelect,
   onDoubleClick,
 }: TrackRowProps) {
-  const { details } = track;
+  const { details, feats } = track;
   const albumArt =
     details.album?.images?.[2]?.url ||
     details.album?.images?.[1]?.url ||
@@ -58,6 +73,11 @@ function TrackRowComponent({
 
   // Check if track is playable (default to true if undefined)
   const isPlayable = details.is_playable !== false;
+
+  // Extract year from release date
+  const releaseYear = details.album?.release_date
+    ? parseInt(details.album.release_date.substring(0, 4), 10)
+    : undefined;
 
   return (
     <div
@@ -157,14 +177,90 @@ function TrackRowComponent({
         </p>
       </div>
 
-      {/* Album - only show on very wide screens */}
-      <div className="w-40 hidden 2xl:block">
-        <p className="text-sm text-muted-foreground truncate">
-          {details.album?.name}
-        </p>
-      </div>
+      {/* Album */}
+      {visibleColumns.has("album") && (
+        <div className="w-40 hidden lg:block">
+          <p className="text-sm text-muted-foreground truncate">
+            {details.album?.name}
+          </p>
+        </div>
+      )}
 
-      {/* Duration */}
+      {/* Popularity */}
+      {visibleColumns.has("popularity") && (
+        <div className="w-16 hidden md:block text-center">
+          <span className="text-sm text-muted-foreground">
+            {details.popularity ?? "-"}
+          </span>
+        </div>
+      )}
+
+      {/* Genres */}
+      {visibleColumns.has("genres") && (
+        <div className="w-32 hidden xl:block">
+          <p className="text-xs text-muted-foreground truncate">
+            {feats?.genres
+              ? Array.from(feats.genres).slice(0, 2).join(", ")
+              : feats?.topGenre || "-"}
+          </p>
+        </div>
+      )}
+
+      {/* Decade */}
+      {visibleColumns.has("decade") && (
+        <div className="w-16 hidden md:block text-center">
+          <span className="text-sm text-muted-foreground">
+            {getDecade(releaseYear)}
+          </span>
+        </div>
+      )}
+
+      {/* Energy */}
+      {visibleColumns.has("energy") && (
+        <div className="w-16 hidden md:block text-center">
+          <span className="text-sm text-muted-foreground">
+            {formatPercent(feats?.energy)}
+          </span>
+        </div>
+      )}
+
+      {/* Danceability */}
+      {visibleColumns.has("danceability") && (
+        <div className="w-16 hidden md:block text-center">
+          <span className="text-sm text-muted-foreground">
+            {formatPercent(feats?.danceability)}
+          </span>
+        </div>
+      )}
+
+      {/* Tempo */}
+      {visibleColumns.has("tempo") && (
+        <div className="w-16 hidden md:block text-center">
+          <span className="text-sm text-muted-foreground">
+            {feats?.tempo ? Math.round(feats.tempo) : "-"}
+          </span>
+        </div>
+      )}
+
+      {/* Valence (Mood) */}
+      {visibleColumns.has("valence") && (
+        <div className="w-16 hidden md:block text-center">
+          <span className="text-sm text-muted-foreground">
+            {formatPercent(feats?.valence)}
+          </span>
+        </div>
+      )}
+
+      {/* Acousticness */}
+      {visibleColumns.has("acousticness") && (
+        <div className="w-16 hidden md:block text-center">
+          <span className="text-sm text-muted-foreground">
+            {formatPercent(feats?.acousticness)}
+          </span>
+        </div>
+      )}
+
+      {/* Duration - Always visible */}
       <div className="w-12 text-right">
         <span className="text-sm text-muted-foreground">
           {formatDuration(details.duration_ms || 0)}
@@ -188,6 +284,7 @@ function arePropsEqual(prev: TrackRowProps, next: TrackRowProps): boolean {
     prev.index === next.index &&
     prev.isPlaying === next.isPlaying &&
     prev.isSelected === next.isSelected &&
+    prev.visibleColumns === next.visibleColumns &&
     // Callbacks are stable (useCallback in parent), so we don't compare them
     prev.onPlay === next.onPlay &&
     prev.onSelect === next.onSelect &&

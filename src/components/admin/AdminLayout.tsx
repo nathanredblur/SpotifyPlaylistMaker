@@ -20,14 +20,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "@/components/melo/GlobalSearch";
 import { SortControls, type SortConfig } from "@/components/melo/SortControls";
-import { AdvancedFilters, type AdvancedFiltersConfig } from "@/components/melo/AdvancedFilters";
+import {
+  AdvancedFilters,
+  type AdvancedFiltersConfig,
+} from "@/components/melo/AdvancedFilters";
 import { MaintenanceDialog } from "./MaintenanceDialog";
 import { TrackDetailsPanel } from "./TrackDetailsPanel";
 import { AdminTrackList, type QuickFilter } from "./AdminTrackList";
-import { AdminColumnSelector, useAdminColumnVisibility } from "./AdminColumnSelector";
+import {
+  AdminColumnSelector,
+  useAdminColumnVisibility,
+} from "./AdminColumnSelector";
 import { AdminFooter } from "./AdminFooter";
 import { ADMIN_DASHBOARD, STORAGE_KEYS } from "@/config/constants";
 import { authorizeSpotify } from "@/lib/spotify-auth";
+import { useSpotifyPlayerContext } from "@/contexts/SpotifyPlayerContext";
 import type { Track } from "@/types/spotify";
 
 // ============================================================================
@@ -77,7 +84,9 @@ function StatBadge({
   };
 
   return (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${variants[variant]}`}>
+    <div
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${variants[variant]}`}
+    >
       <Icon className="w-4 h-4" />
       <span className="text-xs font-medium">{label}:</span>
       <span className="text-sm font-bold">{value}</span>
@@ -96,23 +105,36 @@ export function AdminLayout() {
 
   // Data state
   const [tracks, setTracks] = useState<Map<string, Track>>(new Map());
-  const [tracksMeta, setTracksMeta] = useState<Map<string, TrackMeta>>(new Map());
+  const [tracksMeta, setTracksMeta] = useState<Map<string, TrackMeta>>(
+    new Map()
+  );
   const [stats, setStats] = useState<DatabaseStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ field: "default", direction: "asc" });
-  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersConfig>({});
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    field: "default",
+    direction: "asc",
+  });
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFiltersConfig>(
+    {}
+  );
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
-  const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(new Set());
+  const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(
+    new Set()
+  );
   const [showDetailsPanel, setShowDetailsPanel] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Spotify Player from context
+  const spotifyPlayer = useSpotifyPlayerContext();
+  const isPlaying = !spotifyPlayer.isPaused && !!spotifyPlayer.currentTrack;
 
   // Column visibility (admin-specific)
-  const { visibleColumns, toggleColumn, resetToDefaults } = useAdminColumnVisibility();
+  const { visibleColumns, toggleColumn, resetToDefaults } =
+    useAdminColumnVisibility();
 
   // ============================================================================
   // Auth Logic
@@ -143,7 +165,10 @@ export function AdminLayout() {
             token: accessToken,
             expiresAt: Date.now() + parseInt(expiresIn || "3600") * 1000,
           };
-          localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, JSON.stringify(tokenData));
+          localStorage.setItem(
+            STORAGE_KEYS.ACCESS_TOKEN,
+            JSON.stringify(tokenData)
+          );
           window.history.replaceState(null, "", window.location.pathname);
           await verifyAdminStatus(accessToken);
           return;
@@ -204,7 +229,9 @@ export function AdminLayout() {
       const [statsRes, tracksRes, failedRes] = await Promise.all([
         fetch("/api/stats"),
         fetch("/api/gallery/tracks?limit=10000"), // Fetch all tracks for admin
-        fetch(`/api/failed-tracks?limit=${ADMIN_DASHBOARD.FAILED_TRACKS_PAGE_SIZE}`),
+        fetch(
+          `/api/failed-tracks?limit=${ADMIN_DASHBOARD.FAILED_TRACKS_PAGE_SIZE}`
+        ),
       ]);
 
       if (!statsRes.ok || !tracksRes.ok) {
@@ -220,20 +247,27 @@ export function AdminLayout() {
       setStats(statsData);
 
       // Build failed tracks set
-      const failedTrackIds = new Set(failedData.tracks?.map((t: { spotify_id: string }) => t.spotify_id) || []);
+      const failedTrackIds = new Set(
+        failedData.tracks?.map((t: { spotify_id: string }) => t.spotify_id) ||
+          []
+      );
 
       // Convert tracks to Map and build metadata
       const tracksMap = new Map<string, Track>();
       const metaMap = new Map<string, TrackMeta>();
 
       for (const track of tracksData.tracks) {
-        const hasFeatures = !!(track.audio_features && Object.keys(track.audio_features).length > 0);
+        const hasFeatures = !!(
+          track.audio_features && Object.keys(track.audio_features).length > 0
+        );
         const hasSoundcharts = hasFeatures; // Simplified - in reality check soundcharts_data
         const isFailed = failedTrackIds.has(track.id);
 
         tracksMap.set(track.id, {
           id: track.id,
           details: {
+            id: track.id, // Required by SpotifyTrackDetails
+            uri: `spotify:track:${track.id}`, // Required by SpotifyTrackDetails
             name: track.name,
             artists: track.artists,
             album: track.album,
@@ -242,6 +276,7 @@ export function AdminLayout() {
             explicit: track.explicit,
             external_ids: { isrc: track.isrc }, // Map isrc from API to external_ids
             is_playable: track.is_playable,
+            preview_url: track.preview_url || null, // Required by SpotifyTrackDetails
           },
           feats: track.audio_features || {},
           genres: track.genres ? new Set(track.genres) : undefined,
@@ -279,11 +314,19 @@ export function AdminLayout() {
       const query = searchQuery.toLowerCase();
       result = result.filter((track) => {
         const name = track.details.name?.toLowerCase() || "";
-        const artists = track.details.artists?.map((a) => a.name.toLowerCase()).join(" ") || "";
+        const artists =
+          track.details.artists?.map((a) => a.name.toLowerCase()).join(" ") ||
+          "";
         const album = track.details.album?.name?.toLowerCase() || "";
         const id = track.id.toLowerCase();
         const isrc = track.details.external_ids?.isrc?.toLowerCase() || "";
-        return name.includes(query) || artists.includes(query) || album.includes(query) || id.includes(query) || isrc.includes(query);
+        return (
+          name.includes(query) ||
+          artists.includes(query) ||
+          album.includes(query) ||
+          id.includes(query) ||
+          isrc.includes(query)
+        );
       });
     }
 
@@ -293,7 +336,9 @@ export function AdminLayout() {
         const feats = track.feats;
         for (const [key, range] of Object.entries(advancedFilters)) {
           if (!range) continue;
-          const value = feats?.[key as keyof typeof feats] as number | undefined;
+          const value = feats?.[key as keyof typeof feats] as
+            | number
+            | undefined;
           if (value === undefined) continue;
           if (value < range.min || value > range.max) return false;
         }
@@ -321,19 +366,30 @@ export function AdminLayout() {
             bVal = b.details.popularity || 0;
             break;
           case "decade": {
-            const aYear = a.details.album?.release_date ? parseInt(a.details.album.release_date.substring(0, 4)) : 0;
-            const bYear = b.details.album?.release_date ? parseInt(b.details.album.release_date.substring(0, 4)) : 0;
+            const aYear = a.details.album?.release_date
+              ? parseInt(a.details.album.release_date.substring(0, 4))
+              : 0;
+            const bYear = b.details.album?.release_date
+              ? parseInt(b.details.album.release_date.substring(0, 4))
+              : 0;
             aVal = aYear;
             bVal = bYear;
             break;
           }
           default:
-            aVal = (a.feats?.[sortConfig.field as keyof typeof a.feats] as number) || 0;
-            bVal = (b.feats?.[sortConfig.field as keyof typeof b.feats] as number) || 0;
+            aVal =
+              (a.feats?.[sortConfig.field as keyof typeof a.feats] as number) ||
+              0;
+            bVal =
+              (b.feats?.[sortConfig.field as keyof typeof b.feats] as number) ||
+              0;
         }
 
         if (typeof aVal === "string" && typeof bVal === "string") {
-          const comparison = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" });
+          const comparison = aVal.localeCompare(bVal, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          });
           return sortConfig.direction === "asc" ? comparison : -comparison;
         }
 
@@ -345,13 +401,20 @@ export function AdminLayout() {
     return result;
   }, [tracks, searchQuery, advancedFilters, sortConfig]);
 
-  const handleTrackClick = useCallback((trackId: string) => {
-    const track = tracks.get(trackId);
-    if (track) {
-      setSelectedTrack(track);
-      setShowDetailsPanel(true);
-    }
-  }, [tracks]);
+  const handleTrackClick = useCallback(
+    async (trackId: string) => {
+      const track = tracks.get(trackId);
+      if (track) {
+        setSelectedTrack(track);
+        setShowDetailsPanel(true);
+        // Auto-play the track when clicked
+        if (spotifyPlayer.isPremium) {
+          await spotifyPlayer.play(`spotify:track:${track.id}`);
+        }
+      }
+    },
+    [tracks, spotifyPlayer]
+  );
 
   const handleSelectTrack = useCallback((trackId: string) => {
     setSelectedTrackIds((prev) => {
@@ -385,25 +448,55 @@ export function AdminLayout() {
     });
   }, [filteredTracks]);
 
-  // Playback controls
-  const handlePlayPause = useCallback(() => {
-    setIsPlaying((prev) => !prev);
-    // TODO: Implement actual playback
-  }, []);
+  // Playback controls using Spotify SDK
+  const handlePlayPause = useCallback(async () => {
+    if (!selectedTrack) return;
 
-  const handlePrevious = useCallback(() => {
-    if (!selectedTrack || filteredTracks.length === 0) return;
-    const currentIndex = filteredTracks.findIndex((t) => t.id === selectedTrack.id);
-    const prevIndex = currentIndex > 0 ? currentIndex - 1 : filteredTracks.length - 1;
-    setSelectedTrack(filteredTracks[prevIndex]);
-  }, [selectedTrack, filteredTracks]);
+    // If no track is currently playing, start playing the selected track
+    if (
+      !spotifyPlayer.currentTrack ||
+      spotifyPlayer.currentTrack.id !== selectedTrack.id
+    ) {
+      await spotifyPlayer.play(`spotify:track:${selectedTrack.id}`);
+    } else {
+      // Toggle play/pause for current track
+      await spotifyPlayer.togglePlay();
+    }
+  }, [selectedTrack, spotifyPlayer]);
 
-  const handleNext = useCallback(() => {
+  const handlePrevious = useCallback(async () => {
     if (!selectedTrack || filteredTracks.length === 0) return;
-    const currentIndex = filteredTracks.findIndex((t) => t.id === selectedTrack.id);
-    const nextIndex = currentIndex < filteredTracks.length - 1 ? currentIndex + 1 : 0;
-    setSelectedTrack(filteredTracks[nextIndex]);
-  }, [selectedTrack, filteredTracks]);
+    const currentIndex = filteredTracks.findIndex(
+      (t) => t.id === selectedTrack.id
+    );
+    const prevIndex =
+      currentIndex > 0 ? currentIndex - 1 : filteredTracks.length - 1;
+    const prevTrack = filteredTracks[prevIndex];
+    setSelectedTrack(prevTrack);
+    // Auto-play the previous track
+    await spotifyPlayer.play(`spotify:track:${prevTrack.id}`);
+  }, [selectedTrack, filteredTracks, spotifyPlayer]);
+
+  const handleNext = useCallback(async () => {
+    if (!selectedTrack || filteredTracks.length === 0) return;
+    const currentIndex = filteredTracks.findIndex(
+      (t) => t.id === selectedTrack.id
+    );
+    const nextIndex =
+      currentIndex < filteredTracks.length - 1 ? currentIndex + 1 : 0;
+    const nextTrack = filteredTracks[nextIndex];
+    setSelectedTrack(nextTrack);
+    // Auto-play the next track
+    await spotifyPlayer.play(`spotify:track:${nextTrack.id}`);
+  }, [selectedTrack, filteredTracks, spotifyPlayer]);
+
+  // Auto-advance to next track when current track ends
+  useEffect(() => {
+    if (spotifyPlayer.trackEnded && selectedTrack) {
+      spotifyPlayer.resetTrackEnded();
+      handleNext();
+    }
+  }, [spotifyPlayer.trackEnded, selectedTrack, spotifyPlayer, handleNext]);
 
   // Admin actions
   const handleRefetchSpotify = useCallback(async (trackId: string) => {
@@ -422,7 +515,9 @@ export function AdminLayout() {
   }, []);
 
   const handleExportSelected = useCallback(() => {
-    const selectedTracks = filteredTracks.filter((t) => selectedTrackIds.has(t.id));
+    const selectedTracks = filteredTracks.filter((t) =>
+      selectedTrackIds.has(t.id)
+    );
     const exportData = selectedTracks.map((track) => ({
       id: track.id,
       name: track.details.name,
@@ -434,7 +529,9 @@ export function AdminLayout() {
       features: track.feats,
     }));
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -472,12 +569,18 @@ export function AdminLayout() {
         <div className="text-center max-w-md px-4">
           {isLoggedIn ? (
             <>
-              <AlertCircle size={48} className="text-destructive mx-auto mb-4" />
+              <AlertCircle
+                size={48}
+                className="text-destructive mx-auto mb-4"
+              />
               <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
               <p className="text-muted-foreground mb-4">
                 Your account doesn't have admin privileges.
               </p>
-              <Button onClick={() => (window.location.href = "/")} variant="outline">
+              <Button
+                onClick={() => (window.location.href = "/")}
+                variant="outline"
+              >
                 <Home className="w-4 h-4 mr-2" />
                 Go to Gallery
               </Button>
@@ -491,7 +594,10 @@ export function AdminLayout() {
               <p className="text-muted-foreground mb-8">
                 Log in with your Spotify account to access the admin dashboard.
               </p>
-              <Button onClick={() => authorizeSpotify()} className="bg-accent hover:bg-accent/90">
+              <Button
+                onClick={() => authorizeSpotify()}
+                className="bg-accent hover:bg-accent/90"
+              >
                 <LogIn className="w-4 h-4 mr-2" />
                 Login with Spotify
               </Button>
@@ -520,7 +626,9 @@ export function AdminLayout() {
           <AlertCircle size={48} className="text-destructive mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-2">Error Loading Data</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
-          <Button onClick={fetchData} className="bg-accent hover:bg-accent/90">Retry</Button>
+          <Button onClick={fetchData} className="bg-accent hover:bg-accent/90">
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -542,7 +650,11 @@ export function AdminLayout() {
 
           {stats && (
             <div className="hidden lg:flex items-center gap-2">
-              <StatBadge label="Tracks" value={stats.tracks.total.toLocaleString()} icon={Music} />
+              <StatBadge
+                label="Tracks"
+                value={stats.tracks.total.toLocaleString()}
+                icon={Music}
+              />
               <StatBadge
                 label="Coverage"
                 value={`${stats.tracks.coveragePercentage}%`}
@@ -557,15 +669,30 @@ export function AdminLayout() {
                   variant="warning"
                 />
               )}
-              <StatBadge label="Size" value={`${stats.database.sizeMB} MB`} icon={HardDrive} />
+              <StatBadge
+                label="Size"
+                value={`${stats.database.sizeMB} MB`}
+                icon={HardDrive}
+              />
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          <GlobalSearch value={searchQuery} onChange={setSearchQuery} className="w-48 lg:w-64" placeholder="Search tracks, IDs, ISRCs..." />
+          <GlobalSearch
+            value={searchQuery}
+            onChange={setSearchQuery}
+            className="w-48 lg:w-64"
+            placeholder="Search tracks, IDs, ISRCs..."
+          />
 
-          <Button onClick={fetchData} variant="ghost" size="sm" disabled={loading} className="h-8 w-8 p-0">
+          <Button
+            onClick={fetchData}
+            variant="ghost"
+            size="sm"
+            disabled={loading}
+            className="h-8 w-8 p-0"
+          >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
 
@@ -578,14 +705,26 @@ export function AdminLayout() {
             className="h-8 w-8 p-0"
             title={showDetailsPanel ? "Hide details" : "Show details"}
           >
-            {showDetailsPanel ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+            {showDetailsPanel ? (
+              <PanelRightClose className="w-4 h-4" />
+            ) : (
+              <PanelRightOpen className="w-4 h-4" />
+            )}
           </Button>
 
-          <a href="/" className="text-xs text-muted-foreground hover:text-foreground">
+          <a
+            href="/"
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
             Gallery
           </a>
 
-          <Button onClick={handleLogout} variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive">
+          <Button
+            onClick={handleLogout}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-destructive"
+          >
             <LogOut className="w-4 h-4" />
           </Button>
         </div>
@@ -611,7 +750,10 @@ export function AdminLayout() {
             controls={
               <>
                 <SortControls sort={sortConfig} onSortChange={setSortConfig} />
-                <AdvancedFilters filters={advancedFilters} onFiltersChange={setAdvancedFilters} />
+                <AdvancedFilters
+                  filters={advancedFilters}
+                  onFiltersChange={setAdvancedFilters}
+                />
                 <AdminColumnSelector
                   visibleColumns={visibleColumns}
                   onToggleColumn={toggleColumn}

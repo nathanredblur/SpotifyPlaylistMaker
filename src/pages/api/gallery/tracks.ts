@@ -130,9 +130,10 @@ export const GET: APIRoute = async ({ url }) => {
     const repos = getRepositories();
 
     // Get query parameters
+    // Allow higher limits for admin usage (max 10000)
     const limit = Math.min(
       parseInt(url.searchParams.get("limit") || "50", 10),
-      500
+      10000
     );
     const offset = parseInt(url.searchParams.get("offset") || "0", 10);
     const sortField = (url.searchParams.get("sort") ||

@@ -1,4 +1,5 @@
 // Admin Components
+export { AdminApp } from "./AdminApp";
 export { AdminLayout } from "./AdminLayout";
 export { MaintenanceDialog } from "./MaintenanceDialog";
 export { TrackDetailsPanel } from "./TrackDetailsPanel";

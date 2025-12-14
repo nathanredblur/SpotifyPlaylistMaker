@@ -1,6 +1,0 @@
-"use strict";
-
-var SPOTIFY_CLIENT_ID = 'a7b44a3926144ba1ad1ea2b5207ab495';
-var REMOTE_SPOTIFY_REDIRECT_URI = 'https://oym.c7.ee/'
-var LOCAL_SPOTIFY_REDIRECT_URI = 'http://localhost:8000/';
-var SPOTIFY_REDIRECT_URI = REMOTE_SPOTIFY_REDIRECT_URI;

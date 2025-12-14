@@ -565,6 +565,51 @@ Examples of when TO create docs:
 
 **Default behavior**: Focus on code implementation, not documentation.
 
+## Code Cleanup & Dead Code Detection
+
+### Using knip for Dead Code Detection
+
+This project uses **knip** to detect unused files, dependencies, and exports.
+
+#### Running the Tool
+
+```bash
+# Run dead code detection
+pnpm lint:unused
+```
+
+#### When to Run Cleanup
+
+- **ALWAYS run `pnpm lint:unused`** when the user asks to:
+
+  - "Clean up the code"
+  - "Clean up the repository"
+  - "Find unused code"
+  - "Remove dead code"
+  - Any similar cleanup request
+
+- **Suggest running cleanup** periodically:
+  - After completing a major feature
+  - When refactoring large portions of code
+  - Before major releases
+  - If the codebase feels bloated or slow to build
+
+#### What knip Detects
+
+1. **Unused files**: Files not imported anywhere
+2. **Unused dependencies**: Packages in `package.json` not used in code
+3. **Unused exports**: Functions, types, or constants exported but never imported
+4. **Unused types**: TypeScript types/interfaces not referenced
+
+#### Cleanup Workflow
+
+1. Run `pnpm lint:unused` to get the report
+2. Review the results carefully (some exports may be intentionally public APIs)
+3. Delete unused files
+4. Remove unused dependencies with `pnpm remove <package-name>`
+5. Remove or mark unused exports as internal
+6. Run `pnpm lint:unused` again to verify cleanup
+
 ## Before Each Change
 
 1. Read the `package.json` of the corresponding workspace

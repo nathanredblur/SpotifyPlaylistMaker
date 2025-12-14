@@ -16,9 +16,7 @@ import type { Track, CategoryBin } from "@/types/spotify";
 interface MeloLayoutProps {
   tracks: Map<string, Track>;
   bins: CategoryBin[];
-  adminImageUrl?: string | null;
   adminName?: string;
-  adminBio?: string;
 }
 
 type FilterType =
@@ -35,13 +33,7 @@ interface Filter {
   value?: string;
 }
 
-export function MeloLayout({
-  tracks,
-  bins,
-  adminImageUrl,
-  adminName,
-  adminBio,
-}: MeloLayoutProps) {
+export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   // Spotify Player (optional - only works with Premium)
   const spotifyPlayer = useOptionalSpotifyPlayer();
   const useSpotifyPlayback = spotifyPlayer?.isReady && spotifyPlayer?.isPremium;
@@ -196,7 +188,14 @@ export function MeloLayout({
     } else if (filteredTracks.length > 0) {
       handlePlayTrack(filteredTracks[0]);
     }
-  }, [currentTrack, isPlaying, filteredTracks, handlePlayTrack, useSpotifyPlayback, spotifyPlayer]);
+  }, [
+    currentTrack,
+    isPlaying,
+    filteredTracks,
+    handlePlayTrack,
+    useSpotifyPlayback,
+    spotifyPlayer,
+  ]);
 
   const handlePrevious = useCallback(async () => {
     if (useSpotifyPlayback && spotifyPlayer) {
@@ -212,7 +211,13 @@ export function MeloLayout({
     const prevIndex =
       currentIndex > 0 ? currentIndex - 1 : filteredTracks.length - 1;
     handlePlayTrack(filteredTracks[prevIndex]);
-  }, [currentTrack, filteredTracks, handlePlayTrack, useSpotifyPlayback, spotifyPlayer]);
+  }, [
+    currentTrack,
+    filteredTracks,
+    handlePlayTrack,
+    useSpotifyPlayback,
+    spotifyPlayer,
+  ]);
 
   const handleNext = useCallback(async () => {
     if (useSpotifyPlayback && spotifyPlayer) {
@@ -235,28 +240,41 @@ export function MeloLayout({
     }
 
     handlePlayTrack(filteredTracks[nextIndex]);
-  }, [currentTrack, filteredTracks, isShuffled, handlePlayTrack, useSpotifyPlayback, spotifyPlayer]);
+  }, [
+    currentTrack,
+    filteredTracks,
+    isShuffled,
+    handlePlayTrack,
+    useSpotifyPlayback,
+    spotifyPlayer,
+  ]);
 
-  const handleSeek = useCallback(async (time: number) => {
-    if (useSpotifyPlayback && spotifyPlayer) {
-      // Spotify SDK expects milliseconds
-      await spotifyPlayer.seek(time * 1000);
-      return;
-    }
+  const handleSeek = useCallback(
+    async (time: number) => {
+      if (useSpotifyPlayback && spotifyPlayer) {
+        // Spotify SDK expects milliseconds
+        await spotifyPlayer.seek(time * 1000);
+        return;
+      }
 
-    // Fallback: HTML Audio
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setProgress(time);
-    }
-  }, [useSpotifyPlayback, spotifyPlayer]);
+      // Fallback: HTML Audio
+      if (audioRef.current) {
+        audioRef.current.currentTime = time;
+        setProgress(time);
+      }
+    },
+    [useSpotifyPlayback, spotifyPlayer]
+  );
 
-  const handleVolumeChange = useCallback(async (newVolume: number) => {
-    if (useSpotifyPlayback && spotifyPlayer) {
-      await spotifyPlayer.setVolume(newVolume);
-    }
-    setVolume(newVolume);
-  }, [useSpotifyPlayback, spotifyPlayer]);
+  const handleVolumeChange = useCallback(
+    async (newVolume: number) => {
+      if (useSpotifyPlayback && spotifyPlayer) {
+        await spotifyPlayer.setVolume(newVolume);
+      }
+      setVolume(newVolume);
+    },
+    [useSpotifyPlayback, spotifyPlayer]
+  );
 
   const handleSelectTrack = useCallback((trackId: string) => {
     setSelectedTrackIds((prev) => {
@@ -337,10 +355,18 @@ export function MeloLayout({
   ]);
 
   // Compute current playback state
-  const displayIsPlaying = useSpotifyPlayback ? !spotifyPlayer?.isPaused : isPlaying;
-  const displayProgress = useSpotifyPlayback ? (spotifyPlayer?.position || 0) / 1000 : progress;
-  const displayDuration = useSpotifyPlayback ? (spotifyPlayer?.duration || 0) / 1000 : duration;
-  const displayVolume = useSpotifyPlayback ? (spotifyPlayer?.volume || 0.5) : volume;
+  const displayIsPlaying = useSpotifyPlayback
+    ? !spotifyPlayer?.isPaused
+    : isPlaying;
+  const displayProgress = useSpotifyPlayback
+    ? (spotifyPlayer?.position || 0) / 1000
+    : progress;
+  const displayDuration = useSpotifyPlayback
+    ? (spotifyPlayer?.duration || 0) / 1000
+    : duration;
+  const displayVolume = useSpotifyPlayback
+    ? spotifyPlayer?.volume || 0.5
+    : volume;
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -348,9 +374,8 @@ export function MeloLayout({
       <Header
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        adminImageUrl={adminImageUrl}
-        adminName={adminName}
-        adminBio={adminBio}
+        galleryOwnerName={adminName}
+        isPremium={spotifyPlayer?.isPremium}
       />
 
       {/* Main Content */}

@@ -1,28 +1,26 @@
 /**
  * MELO Header Component
- * Top navigation bar with logo, search, and admin avatar
+ * Top navigation bar with logo, search, and user avatar
  */
 
 import { MeloLogo } from "./MeloLogo";
 import { GlobalSearch } from "./GlobalSearch";
-import { AdminAvatar } from "./AdminAvatar";
+import { UserAvatar } from "./UserAvatar";
 import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
-  adminImageUrl?: string | null;
-  adminName?: string;
-  adminBio?: string;
+  galleryOwnerName?: string;
+  isPremium?: boolean | null;
   className?: string;
 }
 
 export function Header({
   searchValue,
   onSearchChange,
-  adminImageUrl,
-  adminName,
-  adminBio,
+  galleryOwnerName,
+  isPremium,
   className,
 }: HeaderProps) {
   return (
@@ -46,9 +44,9 @@ export function Header({
         className="mx-8"
       />
 
-      {/* Right: Admin Avatar */}
+      {/* Right: User Avatar */}
       <div className="flex items-center gap-4">
-        <AdminAvatar imageUrl={adminImageUrl} name={adminName} bio={adminBio} />
+        <UserAvatar isPremium={isPremium} galleryOwnerName={galleryOwnerName} />
       </div>
     </header>
   );

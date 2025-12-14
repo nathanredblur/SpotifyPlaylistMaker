@@ -145,8 +145,39 @@ const POSITION_UPDATE_INTERVAL = 1000;
 // Helper Functions
 // ============================================================================
 
+/**
+ * Gets the access token from localStorage or from OAuth callback hash
+ * Also processes the OAuth callback if present
+ */
 function getAccessToken(): string | null {
   try {
+    // First, check if there's an OAuth callback in the URL hash
+    if (typeof window !== "undefined" && window.location.hash) {
+      const hash = window.location.hash;
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get("access_token");
+      const expiresIn = params.get("expires_in");
+
+      if (accessToken) {
+        // Store the token
+        const tokenData = {
+          token: accessToken,
+          expiresAt: Date.now() + parseInt(expiresIn || "3600", 10) * 1000,
+          createdAt: Date.now(),
+        };
+        localStorage.setItem(
+          STORAGE_KEYS.ACCESS_TOKEN,
+          JSON.stringify(tokenData)
+        );
+
+        // Clean up URL (remove hash)
+        window.history.replaceState(null, "", window.location.pathname);
+
+        return accessToken;
+      }
+    }
+
+    // Check localStorage
     const tokenData = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     if (!tokenData) return null;
 
@@ -287,29 +318,26 @@ export function useSpotifyPlayer(): UseSpotifyPlayerResult {
         });
 
         // Error handlers
-        player.addListener(
-          "initialization_error",
-          ({ message }: WebPlaybackError) => {
-            console.error("Initialization error:", message);
-            updateState({
-              error: `Initialization failed: ${message}`,
-              isLoading: false,
-            });
-          }
-        );
+        player.addListener("initialization_error", (data) => {
+          const { message } = data as WebPlaybackError;
+          console.error("Initialization error:", message);
+          updateState({
+            error: `Initialization failed: ${message}`,
+            isLoading: false,
+          });
+        });
 
-        player.addListener(
-          "authentication_error",
-          ({ message }: WebPlaybackError) => {
-            console.error("Authentication error:", message);
-            updateState({
-              error: `Authentication failed: ${message}`,
-              isLoading: false,
-            });
-          }
-        );
+        player.addListener("authentication_error", (data) => {
+          const { message } = data as WebPlaybackError;
+          console.error("Authentication error:", message);
+          updateState({
+            error: `Authentication failed: ${message}`,
+            isLoading: false,
+          });
+        });
 
-        player.addListener("account_error", ({ message }: WebPlaybackError) => {
+        player.addListener("account_error", (data) => {
+          const { message } = data as WebPlaybackError;
           console.error("Account error:", message);
           updateState({
             error: "Spotify Premium required for playback",
@@ -318,16 +346,15 @@ export function useSpotifyPlayer(): UseSpotifyPlayerResult {
           });
         });
 
-        player.addListener(
-          "playback_error",
-          ({ message }: WebPlaybackError) => {
-            console.error("Playback error:", message);
-            updateState({ error: `Playback error: ${message}` });
-          }
-        );
+        player.addListener("playback_error", (data) => {
+          const { message } = data as WebPlaybackError;
+          console.error("Playback error:", message);
+          updateState({ error: `Playback error: ${message}` });
+        });
 
         // Ready handler
-        player.addListener("ready", ({ device_id }: WebPlaybackPlayer) => {
+        player.addListener("ready", (data) => {
+          const { device_id } = data as WebPlaybackPlayer;
           console.log("✅ Spotify Player ready with Device ID:", device_id);
           updateState({
             isReady: true,
@@ -339,40 +366,39 @@ export function useSpotifyPlayer(): UseSpotifyPlayerResult {
         });
 
         // Not ready handler
-        player.addListener("not_ready", ({ device_id }: WebPlaybackPlayer) => {
+        player.addListener("not_ready", (data) => {
+          const { device_id } = data as WebPlaybackPlayer;
           console.log("Device ID has gone offline:", device_id);
           updateState({ isReady: false, isActive: false });
         });
 
         // State changed handler
-        player.addListener(
-          "player_state_changed",
-          (playbackState: WebPlaybackState | null) => {
-            if (!playbackState) {
-              updateState({ isActive: false, currentTrack: null });
-              stopPositionTracking();
-              return;
-            }
-
-            const { current_track } = playbackState.track_window;
-
-            updateState({
-              isActive: true,
-              isPaused: playbackState.paused,
-              currentTrack: current_track,
-              position: playbackState.position,
-              duration: playbackState.duration || current_track?.album ? 0 : 0,
-              shuffle: playbackState.shuffle,
-              repeatMode: playbackState.repeat_mode,
-            });
-
-            if (playbackState.paused) {
-              stopPositionTracking();
-            } else {
-              startPositionTracking();
-            }
+        player.addListener("player_state_changed", (data) => {
+          const playbackState = data as WebPlaybackState | null;
+          if (!playbackState) {
+            updateState({ isActive: false, currentTrack: null });
+            stopPositionTracking();
+            return;
           }
-        );
+
+          const { current_track } = playbackState.track_window;
+
+          updateState({
+            isActive: true,
+            isPaused: playbackState.paused,
+            currentTrack: current_track,
+            position: playbackState.position,
+            duration: playbackState.duration || 0,
+            shuffle: playbackState.shuffle,
+            repeatMode: playbackState.repeat_mode,
+          });
+
+          if (playbackState.paused) {
+            stopPositionTracking();
+          } else {
+            startPositionTracking();
+          }
+        });
 
         // Autoplay failed handler
         player.addListener("autoplay_failed", () => {

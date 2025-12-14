@@ -4,7 +4,10 @@
  */
 
 import { createContext, useContext, type ReactNode } from "react";
-import { useSpotifyPlayer, type UseSpotifyPlayerResult } from "@/hooks/useSpotifyPlayer";
+import {
+  useSpotifyPlayer,
+  type UseSpotifyPlayerResult,
+} from "@/hooks/useSpotifyPlayer";
 
 // ============================================================================
 // Context
@@ -20,7 +23,9 @@ interface SpotifyPlayerProviderProps {
   children: ReactNode;
 }
 
-export function SpotifyPlayerProvider({ children }: SpotifyPlayerProviderProps) {
+export function SpotifyPlayerProvider({
+  children,
+}: SpotifyPlayerProviderProps) {
   const player = useSpotifyPlayer();
 
   return (
@@ -53,4 +58,3 @@ export function useSpotifyPlayerContext(): UseSpotifyPlayerResult {
 export function useOptionalSpotifyPlayer(): UseSpotifyPlayerResult | null {
   return useContext(SpotifyPlayerContext);
 }
-

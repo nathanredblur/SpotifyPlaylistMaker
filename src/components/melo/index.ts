@@ -11,7 +11,7 @@ export { Footer } from "./Footer";
 // UI Components
 export { MeloLogo } from "./MeloLogo";
 export { GlobalSearch } from "./GlobalSearch";
-export { AdminAvatar } from "./AdminAvatar";
+export { UserAvatar } from "./UserAvatar";
 export { NavItem } from "./NavItem";
 export { NavAccordion } from "./NavAccordion";
 export { TrackList } from "./TrackList";
@@ -23,4 +23,3 @@ export { TopGenresWidget } from "./widgets/TopGenresWidget";
 export { TopArtistsWidget } from "./widgets/TopArtistsWidget";
 export { DecadesWidget } from "./widgets/DecadesWidget";
 export { MoodWidget } from "./widgets/MoodWidget";
-

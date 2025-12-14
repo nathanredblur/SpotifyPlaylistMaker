@@ -45,9 +45,7 @@ export function NavAccordion({
           "w-full flex items-center gap-3 px-3 py-2 rounded-md",
           "text-sm font-medium transition-colors duration-150",
           "hover:bg-accent-muted hover:text-accent",
-          hasActiveChild
-            ? "text-accent"
-            : "text-muted-foreground"
+          hasActiveChild ? "text-accent" : "text-muted-foreground"
         )}
       >
         <Icon className="w-4 h-4 flex-shrink-0" />
@@ -104,4 +102,3 @@ export function NavAccordion({
     </div>
   );
 }
-

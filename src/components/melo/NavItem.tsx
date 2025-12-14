@@ -30,9 +30,7 @@ export function NavItem({
         "w-full flex items-center gap-3 px-3 py-2 rounded-md",
         "text-sm font-medium transition-colors duration-150",
         "hover:bg-accent-muted hover:text-accent",
-        isActive
-          ? "bg-accent-muted text-accent"
-          : "text-muted-foreground",
+        isActive ? "bg-accent-muted text-accent" : "text-muted-foreground",
         className
       )}
     >
@@ -53,4 +51,3 @@ export function NavItem({
     </button>
   );
 }
-

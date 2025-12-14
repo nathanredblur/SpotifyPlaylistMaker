@@ -20,7 +20,14 @@ interface MeloLayoutProps {
   adminBio?: string;
 }
 
-type FilterType = "all" | "genre" | "mood" | "decade" | "popularity" | "duration" | "added";
+type FilterType =
+  | "all"
+  | "genre"
+  | "mood"
+  | "decade"
+  | "popularity"
+  | "duration"
+  | "added";
 
 interface Filter {
   type: FilterType;
@@ -43,7 +50,9 @@ export function MeloLayout({
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.5);
   const [isShuffled, setIsShuffled] = useState(false);
-  const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(new Set());
+  const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(
+    new Set()
+  );
 
   // Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -54,7 +63,9 @@ export function MeloLayout({
 
     // Apply category filter (case-insensitive bin matching)
     if (activeFilter.type !== "all" && activeFilter.value) {
-      const bin = bins.find((b) => b.name.toLowerCase() === activeFilter.type.toLowerCase());
+      const bin = bins.find(
+        (b) => b.name.toLowerCase() === activeFilter.type.toLowerCase()
+      );
       const node = bin?.nodes.find((n) => n.name === activeFilter.value);
       if (node) {
         // node.tracks is an array of Track objects
@@ -260,9 +271,7 @@ export function MeloLayout({
           bins={bins}
           totalTracks={tracks.size}
           activeFilter={activeFilter}
-          onFilterChange={(filter) =>
-            setActiveFilter(filter as Filter)
-          }
+          onFilterChange={(filter) => setActiveFilter(filter as Filter)}
         />
 
         {/* Main Track List */}
@@ -278,8 +287,10 @@ export function MeloLayout({
           />
         </main>
 
-        {/* Right Sidebar - hidden on smaller screens */}
-        <RightSidebar tracks={tracks} bins={bins} className="hidden 2xl:flex" />
+        {/* Right Sidebar - visible on xl screens (1280px+) */}
+        <div className="hidden lg:block">
+          <RightSidebar tracks={tracks} bins={bins} />
+        </div>
       </div>
 
       {/* Footer Player */}
@@ -303,4 +314,3 @@ export function MeloLayout({
     </div>
   );
 }
-

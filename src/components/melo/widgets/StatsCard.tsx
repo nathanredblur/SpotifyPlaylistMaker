@@ -60,4 +60,3 @@ export function StatsCard({
     </div>
   );
 }
-

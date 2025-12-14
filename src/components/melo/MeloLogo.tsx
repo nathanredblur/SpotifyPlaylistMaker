@@ -25,7 +25,7 @@ export function MeloLogo({
   return (
     <div
       className={cn(
-        "font-pixel text-accent select-none tracking-wider",
+        "font-logo text-accent select-none tracking-widest",
         sizeClasses[size],
         animated && "transition-all duration-300 hover:text-accent-hover hover:scale-105",
         className

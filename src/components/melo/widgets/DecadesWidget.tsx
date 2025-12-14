@@ -51,4 +51,3 @@ export function DecadesWidget({ decades, className }: DecadesWidgetProps) {
     </div>
   );
 }
-

@@ -85,7 +85,8 @@ function getListeningPersonality(profile: AudioProfile): Personality {
   // Default: Eclectic
   return {
     name: "Eclectic Explorer",
-    description: "Your taste spans across genres and moods - a true music lover!",
+    description:
+      "Your taste spans across genres and moods - a true music lover!",
     emoji: "🎵",
   };
 }
@@ -142,4 +143,3 @@ export function MoodWidget({ audioProfile, className }: MoodWidgetProps) {
     </div>
   );
 }
-

@@ -48,13 +48,8 @@ export function Header({
 
       {/* Right: Admin Avatar */}
       <div className="flex items-center gap-4">
-        <AdminAvatar
-          imageUrl={adminImageUrl}
-          name={adminName}
-          bio={adminBio}
-        />
+        <AdminAvatar imageUrl={adminImageUrl} name={adminName} bio={adminBio} />
       </div>
     </header>
   );
 }
-

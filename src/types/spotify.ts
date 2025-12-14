@@ -85,8 +85,16 @@ export interface PlaylistNode {
   sorter: (tracks: Track[]) => Track[];
 }
 
+export type CategoryType =
+  | "Genres"
+  | "Moods"
+  | "Decades"
+  | "Popularity"
+  | "Duration"
+  | "Added";
+
 export interface CategoryBin {
-  name: string;
+  name: CategoryType;
   nodes: PlaylistNode[];
 }
 

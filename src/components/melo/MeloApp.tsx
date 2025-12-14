@@ -89,10 +89,7 @@ export function MeloApp() {
           <p className="text-muted-foreground mb-6">
             The music gallery hasn't been set up yet. The admin needs to sync
             tracks from the{" "}
-            <a
-              href="/admin"
-              className="text-accent hover:underline"
-            >
+            <a href="/admin" className="text-accent hover:underline">
               admin panel
             </a>
             .
@@ -114,4 +111,3 @@ export function MeloApp() {
     />
   );
 }
-

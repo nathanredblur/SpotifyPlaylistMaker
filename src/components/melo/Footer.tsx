@@ -192,7 +192,9 @@ export function Footer({
           >
             <div
               className="h-full bg-foreground rounded-full relative group-hover:bg-accent transition-colors"
-              style={{ width: `${duration > 0 ? (progress / duration) * 100 : 0}%` }}
+              style={{
+                width: `${duration > 0 ? (progress / duration) * 100 : 0}%`,
+              }}
             >
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
@@ -215,7 +217,11 @@ export function Footer({
               ? "bg-accent text-accent-foreground hover:bg-accent-hover"
               : "bg-secondary text-muted-foreground hover:text-foreground"
           )}
-          title={selectedCount > 0 ? `Export ${selectedCount} tracks` : "Select tracks to export"}
+          title={
+            selectedCount > 0
+              ? `Export ${selectedCount} tracks`
+              : "Select tracks to export"
+          }
         >
           <Download className="w-4 h-4" />
           {selectedCount > 0 && <span>{selectedCount}</span>}
@@ -251,4 +257,3 @@ export function Footer({
     </footer>
   );
 }
-

@@ -70,7 +70,7 @@ export function RightSidebar({ tracks, bins, className }: RightSidebarProps) {
   );
 
   // Get genres from bins
-  const genreBin = bins.find((b) => b.name === "genre");
+  const genreBin = bins.find((b) => b.name === "Genres");
   const topGenres: GenreCount[] =
     genreBin?.nodes.map((node) => ({
       name: node.name,
@@ -78,7 +78,7 @@ export function RightSidebar({ tracks, bins, className }: RightSidebarProps) {
     })) || [];
 
   // Get decades from bins
-  const decadeBin = bins.find((b) => b.name === "decade");
+  const decadeBin = bins.find((b) => b.name === "Decades");
   const decades: DecadeCount[] =
     decadeBin?.nodes.map((node) => ({
       decade: node.name,
@@ -148,4 +148,3 @@ export function RightSidebar({ tracks, bins, className }: RightSidebarProps) {
     </aside>
   );
 }
-

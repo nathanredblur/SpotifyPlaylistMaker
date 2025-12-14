@@ -305,9 +305,21 @@ export function useSpotifyEmbed(): UseSpotifyEmbedResult {
         controllerRef.current = null;
       }
 
+      // Function to create controller with retry
+      const tryCreateController = (retries = 10) => {
+        if (!apiRef.current) {
+          // API not ready yet, retry after a delay
+          if (retries > 0) {
+            setTimeout(() => tryCreateController(retries - 1), 200);
+          }
+          return;
+        }
+        createController(uri);
+      };
+
       // Wait for DOM to settle before creating new controller
       setTimeout(() => {
-        createController(uri);
+        tryCreateController();
       }, 100);
     },
     [state.currentUri, createController, updateState]

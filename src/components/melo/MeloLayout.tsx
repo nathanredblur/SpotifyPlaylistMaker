@@ -49,7 +49,6 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(
     new Set()
   );
-  const [showEmbedPlayer, setShowEmbedPlayer] = useState(false);
 
   // Filter tracks based on search and category
   const filteredTracks = useMemo(() => {
@@ -107,7 +106,6 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
 
       // Fallback: Use Spotify Embed Player (shows 30-second preview)
       setCurrentTrack(track);
-      setShowEmbedPlayer(true);
       setIsPlaying(true);
     },
     [useSpotifyPlayback, spotifyPlayer]
@@ -124,12 +122,10 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
     }
 
     // Fallback: Use Spotify Embed
-    if (currentTrack) {
-      // Embed controls playback itself, just toggle visibility
-      setShowEmbedPlayer(true);
-    } else if (filteredTracks.length > 0) {
+    if (!currentTrack && filteredTracks.length > 0) {
       handlePlayTrack(filteredTracks[0]);
     }
+    // Note: Embed controls playback itself via its built-in controls
   }, [
     currentTrack,
     isPlaying,
@@ -140,13 +136,9 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   ]);
 
   const handlePrevious = useCallback(async () => {
-    if (useSpotifyPlayback && spotifyPlayer) {
-      await spotifyPlayer.previousTrack();
-      return;
-    }
+    // Always use our filtered track list for navigation
+    if (!currentTrack || filteredTracks.length === 0) return;
 
-    // Fallback: manual previous in filtered list
-    if (!currentTrack) return;
     const currentIndex = filteredTracks.findIndex(
       (t) => t.id === currentTrack.id
     );
@@ -162,13 +154,9 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   ]);
 
   const handleNext = useCallback(async () => {
-    if (useSpotifyPlayback && spotifyPlayer) {
-      await spotifyPlayer.nextTrack();
-      return;
-    }
+    // Always use our filtered track list for navigation
+    if (!currentTrack || filteredTracks.length === 0) return;
 
-    // Fallback: manual next in filtered list
-    if (!currentTrack) return;
     const currentIndex = filteredTracks.findIndex(
       (t) => t.id === currentTrack.id
     );
@@ -308,6 +296,9 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
   const noPreviewAvailable =
     !useSpotifyPlayback && currentTrack && !currentTrack.details.preview_url;
 
+  // TODO: Add auto-advance to next track when current track ends (Premium mode)
+  // This needs a different approach - possibly using Spotify's queue API
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
@@ -367,16 +358,12 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
         isSpotifyConnected={useSpotifyPlayback || false}
         spotifyError={spotifyPlayer?.error}
         noPreviewAvailable={!useSpotifyPlayback}
+        embedPlayer={
+          !useSpotifyPlayback && currentTrack ? (
+            <SpotifyEmbedPlayer trackId={currentTrack.id} />
+          ) : undefined
+        }
       />
-
-      {/* Spotify Embed Player (fallback for non-Premium users) */}
-      {!useSpotifyPlayback && (
-        <SpotifyEmbedPlayer
-          trackId={currentTrack?.id || null}
-          isVisible={showEmbedPlayer && currentTrack !== null}
-          onClose={() => setShowEmbedPlayer(false)}
-        />
-      )}
     </div>
   );
 }

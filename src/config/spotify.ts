@@ -86,6 +86,12 @@ function initializeConfig() {
       "user-library-read",
       "playlist-modify-public",
       "playlist-modify-private",
+      // Web Playback SDK scopes
+      "streaming",
+      "user-read-email",
+      "user-read-private",
+      "user-read-playback-state",
+      "user-modify-playback-state",
     ] as const,
   };
 }

@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { useGalleryLoader } from "@/hooks/useGalleryLoader";
 import { MeloLayout } from "./MeloLayout";
 import { MeloLogo } from "./MeloLogo";
+import { SpotifyPlayerProvider } from "@/contexts/SpotifyPlayerContext";
 import { Loader2 } from "lucide-react";
 
 export function MeloApp() {
@@ -104,10 +105,12 @@ export function MeloApp() {
 
   // Main Gallery View
   return (
-    <MeloLayout
-      tracks={galleryLoader.tracks}
-      bins={galleryLoader.bins}
-      adminName={adminName}
-    />
+    <SpotifyPlayerProvider>
+      <MeloLayout
+        tracks={galleryLoader.tracks}
+        bins={galleryLoader.bins}
+        adminName={adminName}
+      />
+    </SpotifyPlayerProvider>
   );
 }

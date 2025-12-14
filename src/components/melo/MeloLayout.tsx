@@ -10,6 +10,7 @@ import { RightSidebar } from "./RightSidebar";
 import { Footer } from "./Footer";
 import { TrackList } from "./TrackList";
 import { cn } from "@/lib/utils";
+import { useOptionalSpotifyPlayer } from "@/contexts/SpotifyPlayerContext";
 import type { Track, CategoryBin } from "@/types/spotify";
 
 interface MeloLayoutProps {
@@ -41,6 +42,10 @@ export function MeloLayout({
   adminName,
   adminBio,
 }: MeloLayoutProps) {
+  // Spotify Player (optional - only works with Premium)
+  const spotifyPlayer = useOptionalSpotifyPlayer();
+  const useSpotifyPlayback = spotifyPlayer?.isReady && spotifyPlayer?.isPremium;
+
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<Filter>({ type: "all" });
@@ -54,7 +59,7 @@ export function MeloLayout({
     new Set()
   );
 
-  // Audio ref
+  // Audio ref (fallback for non-Premium users)
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Filter tracks based on search and category
@@ -126,7 +131,23 @@ export function MeloLayout({
   }, [volume]);
 
   const handlePlayTrack = useCallback(
-    (track: Track) => {
+    async (track: Track) => {
+      // Use Spotify Web Playback SDK if available
+      if (useSpotifyPlayback && spotifyPlayer) {
+        const spotifyUri = `spotify:track:${track.id}`;
+
+        if (spotifyPlayer.currentTrack?.id === track.id) {
+          // Toggle play/pause for current track
+          await spotifyPlayer.togglePlay();
+        } else {
+          // Play new track
+          setCurrentTrack(track);
+          await spotifyPlayer.play(spotifyUri);
+        }
+        return;
+      }
+
+      // Fallback: Use preview URL with HTML Audio
       if (currentTrack?.id === track.id) {
         // Toggle play/pause
         if (isPlaying) {
@@ -150,10 +171,20 @@ export function MeloLayout({
         }
       }
     },
-    [currentTrack, isPlaying]
+    [currentTrack, isPlaying, useSpotifyPlayback, spotifyPlayer]
   );
 
-  const handlePlayPause = useCallback(() => {
+  const handlePlayPause = useCallback(async () => {
+    if (useSpotifyPlayback && spotifyPlayer) {
+      if (spotifyPlayer.isActive) {
+        await spotifyPlayer.togglePlay();
+      } else if (filteredTracks.length > 0) {
+        handlePlayTrack(filteredTracks[0]);
+      }
+      return;
+    }
+
+    // Fallback: HTML Audio
     if (currentTrack) {
       if (isPlaying) {
         audioRef.current?.pause();
@@ -165,9 +196,15 @@ export function MeloLayout({
     } else if (filteredTracks.length > 0) {
       handlePlayTrack(filteredTracks[0]);
     }
-  }, [currentTrack, isPlaying, filteredTracks, handlePlayTrack]);
+  }, [currentTrack, isPlaying, filteredTracks, handlePlayTrack, useSpotifyPlayback, spotifyPlayer]);
 
-  const handlePrevious = useCallback(() => {
+  const handlePrevious = useCallback(async () => {
+    if (useSpotifyPlayback && spotifyPlayer) {
+      await spotifyPlayer.previousTrack();
+      return;
+    }
+
+    // Fallback: manual previous in filtered list
     if (!currentTrack) return;
     const currentIndex = filteredTracks.findIndex(
       (t) => t.id === currentTrack.id
@@ -175,9 +212,15 @@ export function MeloLayout({
     const prevIndex =
       currentIndex > 0 ? currentIndex - 1 : filteredTracks.length - 1;
     handlePlayTrack(filteredTracks[prevIndex]);
-  }, [currentTrack, filteredTracks, handlePlayTrack]);
+  }, [currentTrack, filteredTracks, handlePlayTrack, useSpotifyPlayback, spotifyPlayer]);
 
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
+    if (useSpotifyPlayback && spotifyPlayer) {
+      await spotifyPlayer.nextTrack();
+      return;
+    }
+
+    // Fallback: manual next in filtered list
     if (!currentTrack) return;
     const currentIndex = filteredTracks.findIndex(
       (t) => t.id === currentTrack.id
@@ -192,14 +235,28 @@ export function MeloLayout({
     }
 
     handlePlayTrack(filteredTracks[nextIndex]);
-  }, [currentTrack, filteredTracks, isShuffled, handlePlayTrack]);
+  }, [currentTrack, filteredTracks, isShuffled, handlePlayTrack, useSpotifyPlayback, spotifyPlayer]);
 
-  const handleSeek = useCallback((time: number) => {
+  const handleSeek = useCallback(async (time: number) => {
+    if (useSpotifyPlayback && spotifyPlayer) {
+      // Spotify SDK expects milliseconds
+      await spotifyPlayer.seek(time * 1000);
+      return;
+    }
+
+    // Fallback: HTML Audio
     if (audioRef.current) {
       audioRef.current.currentTime = time;
       setProgress(time);
     }
-  }, []);
+  }, [useSpotifyPlayback, spotifyPlayer]);
+
+  const handleVolumeChange = useCallback(async (newVolume: number) => {
+    if (useSpotifyPlayback && spotifyPlayer) {
+      await spotifyPlayer.setVolume(newVolume);
+    }
+    setVolume(newVolume);
+  }, [useSpotifyPlayback, spotifyPlayer]);
 
   const handleSelectTrack = useCallback((trackId: string) => {
     setSelectedTrackIds((prev) => {
@@ -253,6 +310,38 @@ export function MeloLayout({
     }
   }, [currentTrack, handleOpenInSpotify]);
 
+  // Sync Spotify player state to local state
+  useEffect(() => {
+    if (!useSpotifyPlayback || !spotifyPlayer) return;
+
+    // Update local state from Spotify player
+    setIsPlaying(!spotifyPlayer.isPaused);
+    setVolume(spotifyPlayer.volume);
+
+    // Sync current track from Spotify
+    if (spotifyPlayer.currentTrack) {
+      const spotifyTrackId = spotifyPlayer.currentTrack.id;
+      if (spotifyTrackId && currentTrack?.id !== spotifyTrackId) {
+        const trackFromMap = tracks.get(spotifyTrackId);
+        if (trackFromMap) {
+          setCurrentTrack(trackFromMap);
+        }
+      }
+    }
+  }, [
+    useSpotifyPlayback,
+    spotifyPlayer?.isPaused,
+    spotifyPlayer?.volume,
+    spotifyPlayer?.currentTrack,
+    tracks,
+  ]);
+
+  // Compute current playback state
+  const displayIsPlaying = useSpotifyPlayback ? !spotifyPlayer?.isPaused : isPlaying;
+  const displayProgress = useSpotifyPlayback ? (spotifyPlayer?.position || 0) / 1000 : progress;
+  const displayDuration = useSpotifyPlayback ? (spotifyPlayer?.duration || 0) / 1000 : duration;
+  const displayVolume = useSpotifyPlayback ? (spotifyPlayer?.volume || 0.5) : volume;
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
@@ -296,20 +385,22 @@ export function MeloLayout({
       {/* Footer Player */}
       <Footer
         currentTrack={currentTrack}
-        isPlaying={isPlaying}
-        progress={progress}
-        duration={duration}
-        volume={volume}
+        isPlaying={displayIsPlaying}
+        progress={displayProgress}
+        duration={displayDuration}
+        volume={displayVolume}
         isShuffled={isShuffled}
         selectedCount={selectedTrackIds.size}
         onPlayPause={handlePlayPause}
         onPrevious={handlePrevious}
         onNext={handleNext}
         onSeek={handleSeek}
-        onVolumeChange={setVolume}
+        onVolumeChange={handleVolumeChange}
         onShuffle={() => setIsShuffled(!isShuffled)}
         onExport={handleExport}
         onOpenInSpotify={handleOpenCurrentInSpotify}
+        isSpotifyConnected={useSpotifyPlayback}
+        spotifyError={spotifyPlayer?.error}
       />
     </div>
   );

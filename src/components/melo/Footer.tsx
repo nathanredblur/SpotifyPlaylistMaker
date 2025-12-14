@@ -15,6 +15,8 @@ import {
   ExternalLink,
   Download,
   Heart,
+  Disc3,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Track } from "@/types/spotify";
@@ -35,6 +37,8 @@ interface FooterProps {
   onShuffle: () => void;
   onExport: () => void;
   onOpenInSpotify: () => void;
+  isSpotifyConnected?: boolean;
+  spotifyError?: string | null;
   className?: string;
 }
 
@@ -60,6 +64,8 @@ export function Footer({
   onShuffle,
   onExport,
   onOpenInSpotify,
+  isSpotifyConnected,
+  spotifyError,
   className,
 }: FooterProps) {
   const [isMuted, setIsMuted] = useState(false);
@@ -207,6 +213,42 @@ export function Footer({
 
       {/* Right Controls */}
       <div className="flex items-center gap-3 w-64 justify-end">
+        {/* Spotify Status */}
+        {isSpotifyConnected !== undefined && (
+          <div
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs",
+              isSpotifyConnected
+                ? "bg-green-500/20 text-green-400"
+                : spotifyError
+                ? "bg-orange-500/20 text-orange-400"
+                : "bg-secondary text-muted-foreground"
+            )}
+            title={
+              isSpotifyConnected
+                ? "Connected to Spotify"
+                : spotifyError || "Preview mode (30s clips)"
+            }
+          >
+            {isSpotifyConnected ? (
+              <>
+                <Disc3
+                  className="w-3 h-3 animate-spin"
+                  style={{ animationDuration: "3s" }}
+                />
+                <span className="hidden sm:inline">Spotify</span>
+              </>
+            ) : spotifyError ? (
+              <>
+                <AlertCircle className="w-3 h-3" />
+                <span className="hidden sm:inline">Premium</span>
+              </>
+            ) : (
+              <span>Preview</span>
+            )}
+          </div>
+        )}
+
         {/* Export Button */}
         <button
           onClick={onExport}

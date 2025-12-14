@@ -167,6 +167,18 @@ export function MeloLayout({ tracks, bins, adminName }: MeloLayoutProps) {
             aVal = a.details.album?.name || "";
             bVal = b.details.album?.name || "";
             break;
+          case "decade": {
+            // Extract year from release date and get decade
+            const aYear = a.details.album?.release_date
+              ? parseInt(a.details.album.release_date.substring(0, 4), 10)
+              : 0;
+            const bYear = b.details.album?.release_date
+              ? parseInt(b.details.album.release_date.substring(0, 4), 10)
+              : 0;
+            aVal = aYear;
+            bVal = bYear;
+            break;
+          }
           case "popularity":
             aVal = a.details.popularity || 0;
             bVal = b.details.popularity || 0;

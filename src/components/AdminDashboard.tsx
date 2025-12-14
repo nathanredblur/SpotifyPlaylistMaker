@@ -110,24 +110,31 @@ function StatCard({
   variant?: "default" | "success" | "warning" | "danger";
 }) {
   const variantColors = {
-    default: "from-blue-500/20 to-purple-500/20 border-blue-500/30",
-    success: "from-green-500/20 to-emerald-500/20 border-green-500/30",
-    warning: "from-yellow-500/20 to-orange-500/20 border-yellow-500/30",
-    danger: "from-red-500/20 to-pink-500/20 border-red-500/30",
+    default: "border-border bg-card",
+    success: "border-green-500/30 bg-green-500/10",
+    warning: "border-orange-500/30 bg-orange-500/10",
+    danger: "border-red-500/30 bg-red-500/10",
+  };
+
+  const iconColors = {
+    default: "bg-accent/20 text-accent",
+    success: "bg-green-500/20 text-green-400",
+    warning: "bg-orange-500/20 text-orange-400",
+    danger: "bg-red-500/20 text-red-400",
   };
 
   return (
     <div
-      className={`bg-linear-to-br ${variantColors[variant]} backdrop-blur-lg border rounded-lg p-6 transition-all hover:scale-105`}
+      className={`${variantColors[variant]} border rounded-lg p-6 transition-all hover:border-accent/50`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm font-medium text-slate-400 uppercase tracking-wide">
+          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
             {title}
           </p>
-          <p className="text-3xl font-bold text-white mt-2">{value}</p>
+          <p className="text-3xl font-bold text-foreground mt-2">{value}</p>
           {subtitle && (
-            <p className="text-sm text-slate-300 mt-1">{subtitle}</p>
+            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
           )}
           {trend && (
             <div className="flex items-center gap-1 mt-2 text-xs text-green-400">
@@ -136,8 +143,8 @@ function StatCard({
             </div>
           )}
         </div>
-        <div className="bg-white/10 p-3 rounded-lg">
-          <Icon size={24} className="text-white" />
+        <div className={`${iconColors[variant]} p-3 rounded-lg`}>
+          <Icon size={24} />
         </div>
       </div>
     </div>
@@ -148,7 +155,7 @@ function ProgressBar({
   value,
   max,
   label,
-  color = "bg-blue-500",
+  color = "bg-accent",
 }: {
   value: number;
   max: number;
@@ -160,18 +167,18 @@ function ProgressBar({
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-sm">
-        <span className="text-slate-300">{label}</span>
-        <span className="text-slate-400">
+        <span className="text-foreground">{label}</span>
+        <span className="text-muted-foreground">
           {value.toLocaleString()} / {max.toLocaleString()}
         </span>
       </div>
-      <div className="w-full bg-slate-700/50 rounded-full h-2">
+      <div className="w-full bg-secondary rounded-full h-2">
         <div
           className={`${color} h-2 rounded-full transition-all duration-500`}
           style={{ width: `${Math.min(percentage, 100)}%` }}
         />
       </div>
-      <div className="text-right text-xs text-slate-400">
+      <div className="text-right text-xs text-muted-foreground">
         {percentage.toFixed(1)}%
       </div>
     </div>
@@ -491,9 +498,9 @@ export function AdminDashboard() {
   // Show loading while checking auth
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto mb-4" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-accent mx-auto mb-4" />
           <p className="text-lg">Checking access...</p>
         </div>
       </div>
@@ -507,14 +514,14 @@ export function AdminDashboard() {
     const isLoggedIn = tokenData !== null;
 
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-white text-center max-w-md px-4">
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-center max-w-md px-4">
           {isLoggedIn ? (
             // Logged in but not admin
             <>
-              <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+              <AlertCircle size={48} className="text-destructive mx-auto mb-4" />
               <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
-              <p className="text-slate-300 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Your account doesn't have admin privileges. Only the first user
                 to log in becomes the admin.
               </p>
@@ -522,7 +529,7 @@ export function AdminDashboard() {
                 <Button
                   onClick={() => (window.location.href = "/")}
                   variant="outline"
-                  className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                  className="border-border text-muted-foreground hover:bg-secondary"
                 >
                   <Home size={18} className="mr-2" />
                   Go to Gallery
@@ -532,27 +539,27 @@ export function AdminDashboard() {
           ) : (
             // Not logged in - show login page
             <>
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-linear-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                <Music size={40} className="text-white" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent flex items-center justify-center">
+                <Music size={40} className="text-accent-foreground" />
               </div>
               <h1 className="text-3xl font-bold mb-2">Admin Login</h1>
-              <p className="text-slate-400 mb-8">
+              <p className="text-muted-foreground mb-8">
                 Log in with your Spotify account to access the admin dashboard.
               </p>
               <Button
                 onClick={() => authorizeSpotify()}
-                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground px-8 py-3 text-lg"
               >
                 <LogIn size={20} className="mr-2" />
                 Login with Spotify
               </Button>
-              <p className="text-slate-500 text-sm mt-6">
+              <p className="text-muted-foreground text-sm mt-6">
                 The first user to log in will become the admin.
               </p>
-              <div className="mt-8 pt-6 border-t border-slate-800">
+              <div className="mt-8 pt-6 border-t border-border">
                 <a
                   href="/"
-                  className="text-slate-400 hover:text-white transition-colors text-sm"
+                  className="text-muted-foreground hover:text-foreground transition-colors text-sm"
                 >
                   ← Back to Gallery
                 </a>
@@ -566,9 +573,9 @@ export function AdminDashboard() {
 
   if (loading && !stats) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500 mx-auto mb-4" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-accent mx-auto mb-4" />
           <p className="text-lg">Loading dashboard...</p>
         </div>
       </div>
@@ -577,12 +584,12 @@ export function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-white text-center max-w-md">
-          <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground text-center max-w-md">
+          <AlertCircle size={48} className="text-destructive mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-2">Error Loading Dashboard</h2>
-          <p className="text-slate-300 mb-4">{error}</p>
-          <Button onClick={fetchStats}>Retry</Button>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={fetchStats} className="bg-accent hover:bg-accent/90 text-accent-foreground">Retry</Button>
         </div>
       </div>
     );
@@ -591,15 +598,15 @@ export function AdminDashboard() {
   if (!stats) return null;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-950 to-slate-950 p-8">
+    <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
+            <h1 className="text-4xl font-bold text-foreground mb-2">
               Admin Dashboard
             </h1>
-            <p className="text-slate-400">
+            <p className="text-muted-foreground">
               Last updated: {lastUpdate.toLocaleTimeString()}
             </p>
           </div>
@@ -607,21 +614,21 @@ export function AdminDashboard() {
             <Button
               onClick={fetchStats}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
               <span className="ml-2">Refresh</span>
             </Button>
             <a
               href="/"
-              className="text-slate-400 hover:text-white transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors"
             >
               ← Gallery
             </a>
             <Button
               onClick={handleLogout}
               variant="outline"
-              className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+              className="border-destructive/50 text-destructive hover:bg-destructive/10"
             >
               <LogOut size={16} className="mr-2" />
               Logout
@@ -671,22 +678,22 @@ export function AdminDashboard() {
           onValueChange={setActiveTab}
           className="space-y-6"
         >
-          <TabsList className="bg-white/10 border border-white/20 p-1">
+          <TabsList className="bg-secondary border border-border p-1">
             <TabsTrigger
               value="overview"
-              className="text-slate-300 data-[state=active]:bg-white/20 data-[state=active]:text-white data-[state=active]:border-white/30"
+              className="text-muted-foreground data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
             >
               Overview
             </TabsTrigger>
             <TabsTrigger
               value="maintenance"
-              className="text-slate-300 data-[state=active]:bg-white/20 data-[state=active]:text-white data-[state=active]:border-white/30"
+              className="text-muted-foreground data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
             >
               Maintenance
             </TabsTrigger>
             <TabsTrigger
               value="failed-tracks"
-              className="text-slate-300 data-[state=active]:bg-white/20 data-[state=active]:text-white data-[state=active]:border-white/30"
+              className="text-muted-foreground data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
             >
               Failed Tracks ({failedTracks.length})
             </TabsTrigger>
@@ -697,17 +704,17 @@ export function AdminDashboard() {
             {/* Track Coverage & Sync History */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Track Coverage */}
-              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6">
+              <div className="bg-card border border-border rounded-lg p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Database size={24} />
+                  <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                    <Database size={24} className="text-accent" />
                     Track Coverage
                   </h2>
                   <Button
                     onClick={handleRunSync}
                     disabled={isRunningSync}
                     size="sm"
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-accent hover:bg-accent/90 text-accent-foreground"
                   >
                     <Play
                       size={14}
@@ -732,16 +739,16 @@ export function AdminDashboard() {
                     color="bg-blue-500"
                   />
 
-                  <div className="pt-4 border-t border-white/10">
+                  <div className="pt-4 border-t border-border">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <p className="text-slate-400">Missing Audio Features</p>
+                        <p className="text-muted-foreground">Missing Audio Features</p>
                         <p className="text-2xl font-bold text-orange-400">
                           {stats.tracks.withoutSoundCharts.toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-slate-400">Missing ISRC</p>
+                        <p className="text-muted-foreground">Missing ISRC</p>
                         <p className="text-2xl font-bold text-yellow-400">
                           {stats.tracks.withoutISRC.toLocaleString()}
                         </p>
@@ -752,73 +759,73 @@ export function AdminDashboard() {
               </div>
 
               {/* Sync History */}
-              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6">
-                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                  <Clock size={24} />
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
+                  <Clock size={24} className="text-accent" />
                   Sync History
                 </h2>
 
                 {stats.syncs.lastSync ? (
                   <div className="space-y-4">
-                    <div className="bg-white/5 rounded-lg p-4">
-                      <p className="text-sm text-slate-400 mb-2">Last Sync</p>
-                      <p className="text-lg font-semibold text-white">
+                    <div className="bg-secondary rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-2">Last Sync</p>
+                      <p className="text-lg font-semibold text-foreground">
                         {new Date(
                           stats.syncs.lastSync.completedAt
                         ).toLocaleString()}
                       </p>
                       <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
                         <div>
-                          <p className="text-slate-400">New Tracks</p>
+                          <p className="text-muted-foreground">New Tracks</p>
                           <p className="text-xl font-bold text-green-400">
                             {stats.syncs.lastSync.newTracks}
                           </p>
                         </div>
                         <div>
-                          <p className="text-slate-400">Duration</p>
+                          <p className="text-muted-foreground">Duration</p>
                           <p className="text-xl font-bold text-blue-400">
                             {(stats.syncs.lastSync.duration / 1000).toFixed(1)}s
                           </p>
                         </div>
                         <div>
-                          <p className="text-slate-400">Fetched Features</p>
-                          <p className="text-xl font-bold text-purple-400">
+                          <p className="text-muted-foreground">Fetched Features</p>
+                          <p className="text-xl font-bold text-accent">
                             {stats.syncs.lastSync.soundchartsFetched}
                           </p>
                         </div>
                         <div>
-                          <p className="text-slate-400">Failed</p>
-                          <p className="text-xl font-bold text-red-400">
+                          <p className="text-muted-foreground">Failed</p>
+                          <p className="text-xl font-bold text-destructive">
                             {stats.syncs.lastSync.failedTracks}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="text-sm text-slate-400">
+                    <div className="text-sm text-muted-foreground">
                       <p>
                         Total Syncs:{" "}
-                        <span className="text-white font-semibold">
+                        <span className="text-foreground font-semibold">
                           {stats.syncs.total}
                         </span>
                       </p>
                       <p>
                         Avg Duration:{" "}
-                        <span className="text-white font-semibold">
+                        <span className="text-foreground font-semibold">
                           {(stats.syncs.avgDuration / 1000).toFixed(1)}s
                         </span>
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-slate-400">No sync history available</p>
+                  <p className="text-muted-foreground">No sync history available</p>
                 )}
               </div>
             </div>
 
             {/* Audio Features Coverage */}
-            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-white mb-6">
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-foreground mb-6">
                 Audio Features Coverage
               </h2>
 
@@ -831,14 +838,14 @@ export function AdminDashboard() {
                         : 0;
 
                     return (
-                      <div key={feature} className="bg-white/5 rounded-lg p-4">
-                        <p className="text-sm text-slate-400 capitalize mb-2">
+                      <div key={feature} className="bg-secondary rounded-lg p-4">
+                        <p className="text-sm text-muted-foreground capitalize mb-2">
                           {feature}
                         </p>
-                        <p className="text-2xl font-bold text-white">
+                        <p className="text-2xl font-bold text-foreground">
                           {percentage.toFixed(1)}%
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-muted-foreground mt-1">
                           {count.toLocaleString()} tracks
                         </p>
                       </div>
@@ -850,8 +857,8 @@ export function AdminDashboard() {
 
             {/* Failed Requests Breakdown */}
             {stats.failedRequests.byErrorCode.length > 0 && (
-              <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6">
-                <h2 className="text-2xl font-bold text-white mb-6">
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h2 className="text-2xl font-bold text-foreground mb-6">
                   Failed Requests by Error Code
                 </h2>
 
@@ -860,13 +867,13 @@ export function AdminDashboard() {
                     ({ error_code, count }) => (
                       <div
                         key={error_code}
-                        className="flex items-center justify-between bg-white/5 rounded-lg p-4"
+                        className="flex items-center justify-between bg-secondary rounded-lg p-4"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="bg-red-500/20 text-red-400 font-mono text-sm px-3 py-1 rounded">
+                          <div className="bg-destructive/20 text-destructive font-mono text-sm px-3 py-1 rounded">
                             {error_code || "N/A"}
                           </div>
-                          <span className="text-slate-300">
+                          <span className="text-muted-foreground">
                             {error_code === 404
                               ? "Not Found"
                               : error_code === 403
@@ -878,7 +885,7 @@ export function AdminDashboard() {
                               : "Unknown Error"}
                           </span>
                         </div>
-                        <span className="text-white font-semibold">
+                        <span className="text-foreground font-semibold">
                           {count} tracks
                         </span>
                       </div>
@@ -891,8 +898,8 @@ export function AdminDashboard() {
 
           {/* Maintenance Tab */}
           <TabsContent value="maintenance" className="space-y-6">
-            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-white mb-6">
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-foreground mb-6">
                 Database Maintenance Operations
               </h2>
 
@@ -902,8 +909,8 @@ export function AdminDashboard() {
                     maintenanceMessage.type === "success"
                       ? "bg-green-500/20 text-green-400 border border-green-500/30"
                       : maintenanceMessage.type === "error"
-                      ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                      : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                      ? "bg-destructive/20 text-destructive border border-destructive/30"
+                      : "bg-accent/20 text-accent border border-accent/30"
                   }`}
                 >
                   <p className="mb-0">{maintenanceMessage.text}</p>
@@ -911,7 +918,7 @@ export function AdminDashboard() {
                     maintenanceMessage.text.includes("expired") && (
                       <Button
                         onClick={() => (window.location.href = "/")}
-                        className="mt-3 bg-blue-600 hover:bg-blue-700"
+                        className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground"
                       >
                         Go to Login
                       </Button>
@@ -921,18 +928,18 @@ export function AdminDashboard() {
 
               <div className="space-y-6">
                 {/* Migrate ISRCs */}
-                <div className="bg-white/5 rounded-lg p-6">
-                  <h3 className="text-xl font-bold text-white mb-3">
+                <div className="bg-secondary rounded-lg p-6">
+                  <h3 className="text-xl font-bold text-foreground mb-3">
                     1. Migrate ISRCs
                   </h3>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Extract ISRC codes from spotify_data JSON and populate the
                     isrc column. This improves SoundCharts lookup success rate.
                   </p>
                   <Button
                     onClick={handleMigrateISRC}
                     disabled={isRunningMigration}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Download
                       size={16}
@@ -947,18 +954,18 @@ export function AdminDashboard() {
                 </div>
 
                 {/* Clear Failed Requests */}
-                <div className="bg-white/5 rounded-lg p-6">
-                  <h3 className="text-xl font-bold text-white mb-3">
+                <div className="bg-secondary rounded-lg p-6">
+                  <h3 className="text-xl font-bold text-foreground mb-3">
                     2. Clear Failed Requests
                   </h3>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Remove all failed request records to allow retry with the
                     new ISRC strategy.
                   </p>
                   <Button
                     onClick={handleClearFailed}
                     disabled={isClearingFailed}
-                    className="bg-orange-600 hover:bg-orange-700"
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
                   >
                     <Trash2
                       size={16}
@@ -973,18 +980,18 @@ export function AdminDashboard() {
                 </div>
 
                 {/* Trigger Sync */}
-                <div className="bg-white/5 rounded-lg p-6">
-                  <h3 className="text-xl font-bold text-white mb-3">
+                <div className="bg-secondary rounded-lg p-6">
+                  <h3 className="text-xl font-bold text-foreground mb-3">
                     3. Trigger Manual Sync
                   </h3>
-                  <p className="text-slate-300 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Manually trigger a sync to fetch new tracks from Spotify and
                     update SoundCharts data.
                   </p>
                   <Button
                     onClick={handleRunSync}
                     disabled={isRunningSync}
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-accent hover:bg-accent/90 text-accent-foreground"
                   >
                     <Play
                       size={16}
@@ -1001,8 +1008,8 @@ export function AdminDashboard() {
 
           {/* Failed Tracks Tab */}
           <TabsContent value="failed-tracks" className="space-y-6">
-            <div className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-lg p-6">
-              <h2 className="text-2xl font-bold text-white mb-6">
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h2 className="text-2xl font-bold text-foreground mb-6">
                 Tracks with Failed Audio Features
               </h2>
 
@@ -1012,15 +1019,15 @@ export function AdminDashboard() {
                     size={48}
                     className="text-green-500 mx-auto mb-4"
                   />
-                  <p className="text-slate-300 text-lg">
+                  <p className="text-muted-foreground text-lg">
                     No failed tracks! All audio features fetched successfully.
                   </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="border-b border-white/10">
-                      <tr className="text-left text-slate-400">
+                    <thead className="border-b border-border">
+                      <tr className="text-left text-muted-foreground">
                         <th className="pb-3 font-semibold">Track</th>
                         <th className="pb-3 font-semibold">Artist</th>
                         <th className="pb-3 font-semibold">ISRC</th>
@@ -1034,14 +1041,14 @@ export function AdminDashboard() {
                       {failedTracks.map((track) => (
                         <tr
                           key={track.spotify_id}
-                          className="border-b border-white/5 hover:bg-white/5"
+                          className="border-b border-border hover:bg-secondary/50"
                         >
                           <td className="py-3">
-                            <p className="text-white font-medium">
+                            <p className="text-foreground font-medium">
                               {track.track_name || "Unknown Track"}
                             </p>
                           </td>
-                          <td className="py-3 text-slate-300">
+                          <td className="py-3 text-muted-foreground">
                             {track.artists.length > 0
                               ? track.artists.map((a) => a.name).join(", ")
                               : "Unknown Artist"}
@@ -1052,20 +1059,20 @@ export function AdminDashboard() {
                                 {track.isrc}
                               </span>
                             ) : (
-                              <span className="text-slate-500 text-xs">
+                              <span className="text-muted-foreground text-xs">
                                 No ISRC
                               </span>
                             )}
                           </td>
                           <td className="py-3">
-                            <span className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded font-mono">
+                            <span className="bg-destructive/20 text-destructive text-xs px-2 py-1 rounded font-mono">
                               {track.error_code || "N/A"}
                             </span>
                           </td>
-                          <td className="py-3 text-slate-300">
+                          <td className="py-3 text-muted-foreground">
                             {track.attempt_count}/{track.max_attempts}
                           </td>
-                          <td className="py-3 text-slate-400 text-xs">
+                          <td className="py-3 text-muted-foreground text-xs">
                             {new Date(track.updated_at).toLocaleString()}
                           </td>
                           <td className="py-3">
@@ -1073,7 +1080,7 @@ export function AdminDashboard() {
                               href={`https://open.spotify.com/track/${track.spotify_id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-400 hover:text-blue-300"
+                              className="text-accent hover:text-accent/80"
                             >
                               <ExternalLink size={16} />
                             </a>

@@ -6,6 +6,7 @@
 import { memo } from "react";
 import { Check, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { keyToNote } from "@/lib/music-utils";
 import type { Track } from "@/types/spotify";
 import type { AdminVisibleColumns } from "./AdminColumnSelector";
 
@@ -226,6 +227,27 @@ function AdminTrackRowComponent({
         <div className="w-14 hidden md:block text-center">
           <span className="text-xs text-muted-foreground">
             {feats?.tempo ? Math.round(feats.tempo) : "-"}
+          </span>
+        </div>
+      )}
+
+      {visibleColumns.has("key") && (
+        <div className="w-16 hidden md:block text-center">
+          <span className="text-xs text-muted-foreground">
+            {keyToNote(feats?.key, true)}
+            {feats?.mode !== undefined && (
+              <span className="ml-0.5 opacity-60">
+                {feats.mode === 1 ? "M" : "m"}
+              </span>
+            )}
+          </span>
+        </div>
+      )}
+
+      {visibleColumns.has("mode") && (
+        <div className="w-14 hidden md:block text-center">
+          <span className="text-xs text-muted-foreground">
+            {feats?.mode === 1 ? "Major" : feats?.mode === 0 ? "Minor" : "-"}
           </span>
         </div>
       )}

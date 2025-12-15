@@ -28,6 +28,8 @@ export type AdminColumnId =
   | "tempo"
   | "valence"
   | "acousticness"
+  | "key"
+  | "mode"
   // Admin-specific columns
   | "spotifyId"
   | "isrc"
@@ -73,6 +75,8 @@ export const ADMIN_COLUMNS: AdminColumnConfig[] = [
   { id: "energy", label: "Energy", width: "w-14", defaultVisible: false },
   { id: "danceability", label: "Dance", width: "w-14", defaultVisible: false },
   { id: "tempo", label: "BPM", width: "w-14", defaultVisible: true },
+  { id: "key", label: "Key", width: "w-16", defaultVisible: true },
+  { id: "mode", label: "Mode", width: "w-14", defaultVisible: false },
   { id: "valence", label: "Mood", width: "w-14", defaultVisible: false },
   { id: "acousticness", label: "Acoustic", width: "w-14", defaultVisible: false },
   { id: "instrumentalness", label: "Instr.", width: "w-14", defaultVisible: false },

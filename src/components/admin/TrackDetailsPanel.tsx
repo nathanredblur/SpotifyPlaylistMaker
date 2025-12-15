@@ -25,6 +25,7 @@ import {
   Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { keyToNote, formatKeyWithMode } from "@/lib/music-utils";
 import type { Track } from "@/types/spotify";
 
 // ============================================================================
@@ -271,7 +272,8 @@ export function TrackDetailsPanel({
         {/* Technical */}
         <DetailSection title="Technical" icon={Zap} defaultOpen={false}>
           <DetailRow label="Tempo" value={feats?.tempo ? `${Math.round(feats.tempo)} BPM` : "-"} />
-          <DetailRow label="Key" value={feats?.key ?? "-"} />
+          <DetailRow label="Key" value={formatKeyWithMode(feats?.key, feats?.mode)} />
+          <DetailRow label="Key (Pitch Class)" value={feats?.key !== undefined ? `${feats.key} (${keyToNote(feats.key)})` : "-"} />
           <DetailRow label="Mode" value={feats?.mode === 1 ? "Major" : feats?.mode === 0 ? "Minor" : "-"} />
           <DetailRow label="Time Signature" value={feats?.time_signature ? `${feats.time_signature}/4` : "-"} />
           <DetailRow label="Loudness" value={feats?.loudness ? `${feats.loudness.toFixed(1)} dB` : "-"} />

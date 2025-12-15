@@ -16,6 +16,7 @@ import {
   Database,
   PanelRightClose,
   PanelRightOpen,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "@/components/melo/GlobalSearch";
@@ -32,6 +33,8 @@ import {
   useAdminColumnVisibility,
 } from "./AdminColumnSelector";
 import { AdminFooter } from "./AdminFooter";
+import { AdminFilters } from "./AdminFilters";
+import { TrackEditDialog, type TrackFormData } from "./TrackEditDialog";
 import { ADMIN_DASHBOARD, STORAGE_KEYS } from "@/config/constants";
 import { authorizeSpotify } from "@/lib/spotify-auth";
 import { useSpotifyPlayerContext } from "@/contexts/SpotifyPlayerContext";
@@ -127,6 +130,9 @@ export function AdminLayout() {
     new Set()
   );
   const [showDetailsPanel, setShowDetailsPanel] = useState(true);
+  const [selectedGenres, setSelectedGenres] = useState<Set<string>>(new Set());
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [trackToEdit, setTrackToEdit] = useState<Track | null>(null);
 
   // Spotify Player from context
   const spotifyPlayer = useSpotifyPlayerContext();
@@ -263,22 +269,37 @@ export function AdminLayout() {
         const hasSoundcharts = hasFeatures; // Simplified - in reality check soundcharts_data
         const isFailed = failedTrackIds.has(track.id);
 
+        // Compute moods from energy and valence
+        const energy = track.audio_features?.energy ?? 0.5;
+        const valence = track.audio_features?.valence ?? 0.5;
+        const computedHappiness = Math.min(1, (valence + energy) / 2);
+        const computedSadness = Math.min(1, (1 - valence + (1 - energy)) / 2);
+        const computedAnger = Math.min(1, energy * (1 - valence));
+
         tracksMap.set(track.id, {
           id: track.id,
           details: {
-            id: track.id, // Required by SpotifyTrackDetails
-            uri: `spotify:track:${track.id}`, // Required by SpotifyTrackDetails
+            id: track.id,
+            uri: `spotify:track:${track.id}`,
             name: track.name,
             artists: track.artists,
             album: track.album,
             duration_ms: track.duration_ms,
             popularity: track.popularity,
             explicit: track.explicit,
-            external_ids: { isrc: track.isrc }, // Map isrc from API to external_ids
+            external_ids: { isrc: track.isrc },
             is_playable: track.is_playable,
-            preview_url: track.preview_url || null, // Required by SpotifyTrackDetails
+            preview_url: track.preview_url || null,
           },
-          feats: track.audio_features || {},
+          feats: {
+            ...track.audio_features,
+            // Add computed moods
+            happiness: computedHappiness,
+            sadness: computedSadness,
+            anger: computedAnger,
+            // Add genres to feats for consistency
+            genres: track.genres ? new Set(track.genres) : undefined,
+          },
           genres: track.genres ? new Set(track.genres) : undefined,
         } as Track);
 
@@ -306,6 +327,19 @@ export function AdminLayout() {
   // Track Operations
   // ============================================================================
 
+  // Collect all available genres from tracks
+  const availableGenres = useMemo(() => {
+    const genreSet = new Set<string>();
+    for (const track of tracks.values()) {
+      if (track.genres) {
+        for (const genre of track.genres) {
+          genreSet.add(genre);
+        }
+      }
+    }
+    return Array.from(genreSet).sort();
+  }, [tracks]);
+
   const filteredTracks = useMemo(() => {
     let result = Array.from(tracks.values());
 
@@ -327,6 +361,18 @@ export function AdminLayout() {
           id.includes(query) ||
           isrc.includes(query)
         );
+      });
+    }
+
+    // Apply genre filter
+    if (selectedGenres.size > 0) {
+      result = result.filter((track) => {
+        if (!track.genres) return false;
+        // Track matches if it has ANY of the selected genres
+        for (const genre of selectedGenres) {
+          if (track.genres.has(genre)) return true;
+        }
+        return false;
       });
     }
 
@@ -399,7 +445,7 @@ export function AdminLayout() {
     }
 
     return result;
-  }, [tracks, searchQuery, advancedFilters, sortConfig]);
+  }, [tracks, searchQuery, selectedGenres, advancedFilters, sortConfig]);
 
   const handleTrackClick = useCallback(
     async (trackId: string) => {
@@ -544,6 +590,59 @@ export function AdminLayout() {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     window.location.reload();
   };
+
+  // Track Edit Handlers
+  const handleEditTrack = useCallback((track: Track) => {
+    setTrackToEdit(track);
+    setEditDialogOpen(true);
+  }, []);
+
+  const handleAddTrack = useCallback(() => {
+    setTrackToEdit(null);
+    setEditDialogOpen(true);
+  }, []);
+
+  const handleSaveTrack = useCallback(
+    async (formData: TrackFormData) => {
+      const response = await fetch("/api/admin/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to save track");
+      }
+
+      setEditDialogOpen(false);
+      await fetchData();
+    },
+    [fetchData]
+  );
+
+  const handleFetchFromSpotify = useCallback(
+    async (spotifyId: string): Promise<Partial<TrackFormData> | null> => {
+      // Get access token
+      const tokenData = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+      if (!tokenData) {
+        throw new Error("Not authenticated");
+      }
+      const { token } = JSON.parse(tokenData);
+
+      const response = await fetch(`/api/admin/track?id=${spotifyId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to fetch track from Spotify");
+      }
+
+      return response.json();
+    },
+    []
+  );
 
   // ============================================================================
   // Render States
@@ -754,11 +853,25 @@ export function AdminLayout() {
                   filters={advancedFilters}
                   onFiltersChange={setAdvancedFilters}
                 />
+                <AdminFilters
+                  availableGenres={availableGenres}
+                  selectedGenres={selectedGenres}
+                  onGenresChange={setSelectedGenres}
+                />
                 <AdminColumnSelector
                   visibleColumns={visibleColumns}
                   onToggleColumn={toggleColumn}
                   onReset={resetToDefaults}
                 />
+                <div className="flex-1" />
+                <Button
+                  onClick={handleAddTrack}
+                  size="sm"
+                  className="h-7 px-2 text-xs gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Track
+                </Button>
               </>
             }
           />
@@ -771,6 +884,7 @@ export function AdminLayout() {
             onClose={() => setSelectedTrack(null)}
             onRefetchSpotify={handleRefetchSpotify}
             onRefetchFeatures={handleRefetchFeatures}
+            onEdit={handleEditTrack}
           />
         )}
       </div>
@@ -788,6 +902,15 @@ export function AdminLayout() {
         onRefetchFeatures={handleRefetchFeatures}
         onExportSelected={handleExportSelected}
         selectedTrackIds={selectedTrackIds}
+      />
+
+      {/* Track Edit Dialog */}
+      <TrackEditDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        track={trackToEdit}
+        onSave={handleSaveTrack}
+        onFetchFromSpotify={handleFetchFromSpotify}
       />
     </div>
   );
